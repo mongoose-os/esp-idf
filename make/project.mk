@@ -99,6 +99,7 @@ export BUILD_DIR_BASE
 
 # Component directories. These directories are searched for components.
 # The project Makefile can override these component dirs, or define extra component directories.
+EXTRA_COMPONENT_DIRS ?=
 COMPONENT_DIRS ?= $(PROJECT_PATH)/components $(EXTRA_COMPONENT_DIRS) $(IDF_PATH)/components
 export COMPONENT_DIRS
 
@@ -129,15 +130,18 @@ COMPONENT_PATHS += $(abspath $(SRCDIRS))
 COMPONENT_PATHS_BUILDABLE := $(foreach cp,$(COMPONENT_PATHS),$(if $(wildcard $(cp)/component.mk),$(cp)))
 
 # If TESTS_ALL set to 1, set TEST_COMPONENTS_LIST to all components
+ifdef TESTS_ALL
 ifeq ($(TESTS_ALL),1)
 TEST_COMPONENTS_LIST := $(COMPONENTS)
 else
 # otherwise, use TEST_COMPONENTS
 TEST_COMPONENTS_LIST := $(TEST_COMPONENTS)
 endif
+else
+TEST_COMPONENTS_LIST :=
+endif
 TEST_COMPONENT_PATHS := $(foreach comp,$(TEST_COMPONENTS_LIST),$(firstword $(foreach dir,$(COMPONENT_DIRS),$(wildcard $(dir)/$(comp)/test))))
-TEST_COMPONENT_NAMES :=  $(foreach comp,$(TEST_COMPONENT_PATHS),$(lastword $(subst /, ,$(dir $(comp))))_test)
-
+TEST_COMPONENT_NAMES := $(foreach comp,$(TEST_COMPONENT_PATHS),$(lastword $(subst /, ,$(dir $(comp))))_test)
 
 # Initialise project-wide variables which can be added to by
 # each component.
@@ -190,7 +194,7 @@ endif
 IDF_VER := $(shell git -C $(IDF_PATH) describe)
 
 # Set default LDFLAGS
-
+EXTRA_LDFLAGS ?=
 LDFLAGS ?= -nostdlib \
 	$(addprefix -L$(BUILD_DIR_BASE)/,$(COMPONENTS) $(TEST_COMPONENT_NAMES) $(SRCDIRS) ) \
 	-u call_user_start_cpu0	\
@@ -214,6 +218,7 @@ LDFLAGS ?= -nostdlib \
 
 # CPPFLAGS used by C preprocessor
 # If any flags are defined in application Makefile, add them at the end. 
+EXTRA_CPPFLAGS ?=
 CPPFLAGS := -DESP_PLATFORM -D IDF_VER=\"$(IDF_VER)\" -MMD -MP $(CPPFLAGS) $(EXTRA_CPPFLAGS)
 
 # Warnings-related flags relevant both for C and C++
@@ -245,6 +250,7 @@ OPTIMIZATION_FLAGS += -ggdb
 
 # List of flags to pass to C compiler
 # If any flags are defined in application Makefile, add them at the end.
+EXTRA_CFLAGS ?=
 CFLAGS := $(strip \
 	-std=gnu99 \
 	$(OPTIMIZATION_FLAGS) \
@@ -255,6 +261,7 @@ CFLAGS := $(strip \
 
 # List of flags to pass to C++ compiler
 # If any flags are defined in application Makefile, add them at the end.
+EXTRA_CXXFLAGS ?=
 CXXFLAGS := $(strip \
 	-std=gnu++11 \
 	-fno-exceptions \
@@ -411,7 +418,7 @@ check-submodules: $(IDF_PATH)/$(1)/.git
 $(IDF_PATH)/$(1)/.git:
 	@echo "WARNING: Missing submodule $(1)..."
 	[ -d ${IDF_PATH}/.git ] || ( echo "ERROR: esp-idf must be cloned from git to work."; exit 1)
-	[ -x $(which git) ] || ( echo "ERROR: Need to run 'git submodule init $(1)' in esp-idf root directory."; exit 1)
+	[ -x $$(which git) ] || ( echo "ERROR: Need to run 'git submodule init $(1)' in esp-idf root directory."; exit 1)
 	@echo "Attempting 'git submodule update --init $(1)' in esp-idf root directory..."
 	cd ${IDF_PATH} && git submodule update --init $(1)
 
