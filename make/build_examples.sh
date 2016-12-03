@@ -28,6 +28,9 @@ for category in ${IDF_PATH}/examples/*; do
         cp -r ${example} example_builds/${EXAMPLE_NUM}
         pushd example_builds/${EXAMPLE_NUM}/`basename ${example}`
 
+        # clean up build/config state in the example directory
+        rm -rf build sdkconfig
+
         # be stricter in the CI build than the default IDF settings
         export EXTRA_CFLAGS="-Werror -Werror=deprecated-declarations"
         export EXTRA_CXXFLAGS=${EXTRA_CFLAGS}

@@ -409,11 +409,13 @@ depending on the options selected in ``make menuconfig``:
 
     COMPONENT_OBJS := foo_a.o foo_b.o
 
-    ifdef CONFIG_FOO_BAR
+    ifeq ("$(CONFIG_FOO_BAR)","y")
     COMPONENT_OBJS += foo_bar.o foo_bar_interface.o
     endif
 
-See the `GNU Make Manual` for conditional syntax that can be used use in makefiles.
+Note that `CONFIG_FOO_BAR` is always defined, but is either empty or has a value of `y`.
+
+See the `GNU Make Manual` for conditional syntax that can be used in makefiles.
 
 
 Source Code Generation

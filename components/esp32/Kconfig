@@ -707,12 +707,13 @@ config ESP32_WIFI_NVS_ENABLED
         Select this option to enable WiFi NVS flash
 
 config PHY_ENABLED
-	bool
-	default y if WIFI_ENABLED || BT_ENABLED
+    bool
+    depends on WIFI_ENABLED || BT_ENABLED
+    default y
 
 menu PHY
-	visible if PHY_ENABLED
-	
+    visible if PHY_ENABLED
+
 config ESP32_PHY_CALIBRATION_AND_DATA_STORAGE
     bool "Do phy calibration and store calibration data in NVS"
     depends on PHY_ENABLED
@@ -740,7 +741,7 @@ config ESP32_PHY_INIT_DATA_IN_PARTITION
         into the application binary.
 
         If unsure, choose 'n'.
-	
+
 config ESP32_PHY_MAX_WIFI_TX_POWER
     int "Max WiFi TX power (dBm)"
     range 0 20
