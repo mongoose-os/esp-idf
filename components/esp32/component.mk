@@ -4,10 +4,10 @@
 
 COMPONENT_SRCDIRS := . hwcrypto
 LIBS := core rtc rtc_clk
-ifdef CONFIG_PHY_ENABLED # BT || WIFI
+ifeq ("$(CONFIG_PHY_ENABLED)","y") # BT || WIFI
 LIBS += phy coexist
 endif
-ifdef CONFIG_WIFI_ENABLED
+ifeq ("$(CONFIG_WIFI_ENABLED)","y")
 LIBS += net80211 pp wpa smartconfig coexist wps wpa2
 endif
 

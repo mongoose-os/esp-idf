@@ -176,9 +176,9 @@ export COMPONENT_INCLUDES
 include $(IDF_PATH)/make/common.mk
 
 all:
-ifdef CONFIG_SECURE_BOOT_ENABLED
+ifneq ("$(CONFIG_SECURE_BOOT_ENABLED)","")
 	@echo "(Secure boot enabled, so bootloader not flashed automatically. See 'make bootloader' output)"
-ifndef CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES
+ifeq ("$(CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES)","")
 	@echo "App built but not signed. Sign app & partition data before flashing, via espsecure.py:"
 	@echo "espsecure.py sign_data --keyfile KEYFILE $(APP_BIN)"
 	@echo "espsecure.py sign_data --keyfile KEYFILE $(PARTITION_TABLE_BIN)"
@@ -325,6 +325,7 @@ COMPONENT_LIBRARIES = $(filter $(notdir $(COMPONENT_PATHS_BUILDABLE)) $(TEST_COM
 #
 # also depends on additional dependencies (linker scripts & binary libraries)
 # stored in COMPONENT_LINKER_DEPS, built via component.mk files' COMPONENT_ADD_LINKER_DEPS variable
+COMPONENT_LINKER_DEPS ?=
 $(APP_ELF): $(foreach libcomp,$(COMPONENT_LIBRARIES),$(BUILD_DIR_BASE)/$(libcomp)/lib$(libcomp).a) $(COMPONENT_LINKER_DEPS)
 	$(summary) LD $(notdir $@)
 	$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP)
