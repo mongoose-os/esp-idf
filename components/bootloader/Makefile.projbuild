@@ -115,6 +115,8 @@ $(BOOTLOADER_BUILD_DIR):
 	mkdir -p $@
 
 else
+
+SDKCONFIG =
 CFLAGS += -D BOOTLOADER_BUILD=1 -I $(IDF_PATH)/components/esp32/include
 
 endif

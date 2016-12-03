@@ -46,6 +46,12 @@ COMPONENT_EMBED_TXTFILES ?=
 COMPONENT_ADD_INCLUDEDIRS = include
 COMPONENT_ADD_LDFLAGS = -l$(COMPONENT_NAME)
 
+COMPONENT_ADD_INCLUDEDIRS ?=
+COMPONENT_ADD_LDFLAGS ?=
+COMPONENT_DEPENDS ?=
+COMPONENT_EXTRA_CLEAN ?=
+COMPONENT_EXTRA_INCLUDES ?=
+COMPONENT_SUBMODULES ?=
 
 ################################################################################
 # 2) Include the component.mk for the specific component (COMPONENT_MAKEFILE) to
@@ -78,6 +84,7 @@ COMPONENT_EMBED_OBJS ?= $(addsuffix .bin.o,$(notdir $(COMPONENT_EMBED_FILES))) $
 # variable with all the include dirs from all the components in random order. This
 # means we can accidentally grab a header from another component before grabbing our own.
 # To make sure that does not happen, re-order the includes so ours come first.
+COMPONENT_PRIV_INCLUDEDIRS ?=
 OWN_INCLUDES:=$(abspath $(addprefix $(COMPONENT_PATH)/,$(COMPONENT_ADD_INCLUDEDIRS) $(COMPONENT_PRIV_INCLUDEDIRS)))
 COMPONENT_INCLUDES := $(OWN_INCLUDES) $(filter-out $(OWN_INCLUDES),$(COMPONENT_INCLUDES))
 
@@ -110,7 +117,7 @@ endef
 # component-specific feature, please don't! What you want is a
 # Makefile.projbuild for your component (see docs/build-system.rst for
 # more.)
-component_project_vars.mk::
+component_project_vars.mk:
 	$(details) "Building component project variables list $(abspath $@)"
 	@echo '# Automatically generated build file. Do not edit.' > $@
 	@echo 'COMPONENT_INCLUDES += $(call MakeVariablePath,$(addprefix $(COMPONENT_PATH)/,$(COMPONENT_ADD_INCLUDEDIRS)))' >> $@
@@ -148,6 +155,8 @@ clean:
 	$(summary) RM $(CLEAN_FILES)
 	rm -f $(CLEAN_FILES)
 endif
+
+DEBUG_FLAGS ?= -ggdb
 
 # Include all dependency files already generated
 -include $(COMPONENT_OBJS:.o=.d)
