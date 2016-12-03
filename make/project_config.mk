@@ -42,7 +42,7 @@ define RunConf
 	$(KCONFIG_TOOL_DIR)/$1 $(IDF_PATH)/Kconfig
 endef
 
-ifeq ("$(MAKE_RESTARTS)","")
+ifndef MAKE_RESTARTS
 # menuconfig, defconfig and "GENCONFIG" configuration generation only
 # ever run on the first make pass, subsequent passes don't run these
 # (make often wants to re-run them as the conf tool can regenerate the
@@ -92,6 +92,6 @@ endif
 
 .PHONY: config-clean defconfig menuconfig
 config-clean:
-	$(summary RM CONFIG)
+	$(summary) RM CONFIG
 	$(MAKE) -C $(KCONFIG_TOOL_DIR) clean
 	rm -rf $(BUILD_DIR_BASE)/include/config $(BUILD_DIR_BASE)/include/sdkconfig.h
