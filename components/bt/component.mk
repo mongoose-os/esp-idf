@@ -1,7 +1,7 @@
 #
 # Component Makefile
 #
-ifdef CONFIG_BT_ENABLED
+ifneq ("$(CONFIG_BT_ENABLED)","")
 
 COMPONENT_ADD_INCLUDEDIRS :=	bluedroid/bta/include			\
 				bluedroid/bta/sys/include		\
