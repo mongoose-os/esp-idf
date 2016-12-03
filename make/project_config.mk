@@ -92,6 +92,6 @@ endif
 
 .PHONY: config-clean defconfig menuconfig
 config-clean:
-	$(summary RM CONFIG)
+	$(summary) RM CONFIG
 	$(MAKE) -C $(KCONFIG_TOOL_DIR) clean
 	rm -rf $(BUILD_DIR_BASE)/include/config $(BUILD_DIR_BASE)/include/sdkconfig.h
