@@ -1,3 +1,6 @@
+/* TODO(rojer): Merge our CD support with upstream */
+
+#if 0
 // Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -566,3 +569,55 @@ void esp_core_dump_init()
 
 #endif
 
+#else
+
+#ifndef BOOTLOADER_BUILD
+
+/*
+ * Copyright (c) 2014-2016 Cesanta Software Limited
+ * All rights reserved
+ */
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/xtensa_api.h"
+
+#include "esp_gdbstub.h"
+#include "esp_panic.h"
+
+#include "mgos_core_dump.h"
+
+static void emit_task_handles() {
+  TaskHandle_t tasks[32];
+  int numTasks = uxTaskGetTaskHandles(tasks, sizeof(tasks) / sizeof(tasks[0]));
+  mgos_cd_puts(",\n\"tasks\": [");
+  for (int i = 0; i < numTasks; i++) {
+    if (i > 0) mgos_cd_putc(',');
+    mgos_cd_printf("%lu", (unsigned long) tasks[i]);
+  }
+  mgos_cd_putc(']');
+}
+
+void esp_core_dump_to_uart(XtExcFrame *frame) {
+  dumpHwToRegfile(frame);
+  esp_clear_watchpoint(0);
+  esp_clear_watchpoint(1);
+  mgos_cd_emit_header();
+  mgos_cd_emit_section(MGOS_CORE_DUMP_SECTION_REGS, &gdbRegFile, sizeof(gdbRegFile));
+  mgos_cd_emit_section("DRAM", (void *) 0x3FFAE000, 0x52000);
+  emit_task_handles();
+  mgos_cd_emit_footer();
+}
+
+void esp_core_dump_init() {
+}
+
+#else
+
+void esp_core_dump_to_uart(void *frame) {
+  (void) frame;
+}
+
+#endif
+
+#endif
