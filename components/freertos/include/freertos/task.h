@@ -2301,6 +2301,9 @@ void *pvTaskIncrementMutexHeldCount( void );
  */
 UBaseType_t uxTaskGetSnapshotAll( TaskSnapshot_t * const pxTaskSnapshotArray, const UBaseType_t uxArraySize, UBaseType_t * const pxTcbSz );
 
+/* Used by core dump facility to get list of task handles. */
+UBaseType_t uxTaskGetTaskHandles( TaskHandle_t * const pxTaskHandleArray, const UBaseType_t uxArraySize );
+
 /** @endcond */
 
 #ifdef __cplusplus
