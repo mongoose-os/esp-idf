@@ -60,6 +60,10 @@ esp_err_t esp_set_watchpoint(int no, void *adr, int size, int flags);
  */
 void esp_clear_watchpoint(int no);
 
+void panicPutChar(char c);
+void panicPutStr(const char *c);
+void panicPutHex(int a);
+void panicPutDec(int a);
 
 /**
  * @brief Stops panic WDT
