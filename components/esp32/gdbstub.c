@@ -151,40 +151,6 @@ static unsigned char ATTR_GDBFN readbyte(unsigned int p) {
 	return *i>>((p&3)*8);
 }
 
-
-//Register file in the format exp108 gdb port expects it.
-//Inspired by gdb/regformats/reg-xtensa.dat
-typedef struct {
-	uint32_t pc;
-	uint32_t a[64];
-	uint32_t lbeg;
-	uint32_t lend;
-	uint32_t lcount;
-	uint32_t sar;
-	uint32_t windowbase;
-	uint32_t windowstart;
-	uint32_t configid0;
-	uint32_t configid1;
-	uint32_t ps;
-	uint32_t threadptr;
-	uint32_t br;
-	uint32_t scompare1;
-	uint32_t acclo;
-	uint32_t acchi;
-	uint32_t m0;
-	uint32_t m1;
-	uint32_t m2;
-	uint32_t m3;
-	uint32_t expstate;  //I'm going to assume this is exccause...
-	uint32_t f64r_lo;
-	uint32_t f64r_hi;
-	uint32_t f64s;
-	uint32_t f[16];
-	uint32_t fcr;
-	uint32_t fsr;
-} GdbRegFile;
-
-
 GdbRegFile gdbRegFile;
 
 /* 
@@ -211,8 +177,23 @@ STRUCT_FIELD (long, 4, XT_STK_OVLY,   ovly)
 STRUCT_END(XtExcFrame)
 */
 
+/*
+ * Extra register state, located at offset XT_STK_EXTRA within the frame.
+ * Structure deduced from xthal_save/restore_extra_nw.
+ */
+struct ExtraRegsFrame {
+  uint32_t threadptr;  // 0
+  uint32_t acclo;      // 4
+  uint32_t acchi;      // 8
+  uint32_t br;         // 12
+  uint32_t scompare1;  // 16
+  uint32_t m[4];       // 20, 24, 28, 32
+  uint32_t f64_lo;     // 36
+  uint32_t f64_hi;     // 40
+  uint32_t f64_s;      // 44
+};
 
-static void dumpHwToRegfile(XtExcFrame *frame) {
+void dumpHwToRegfile(XtExcFrame *frame) {
 	int i;
 	long *frameAregs=&frame->a0;
 	gdbRegFile.pc=frame->pc;
@@ -229,16 +210,21 @@ static void dumpHwToRegfile(XtExcFrame *frame) {
 	gdbRegFile.configid0=0xdeadbeef; //ToDo
 	gdbRegFile.configid1=0xdeadbeef; //ToDo
 	gdbRegFile.ps=frame->ps-PS_EXCM_MASK;
-	gdbRegFile.threadptr=0xdeadbeef; //ToDo
-	gdbRegFile.br=0xdeadbeef; //ToDo
-	gdbRegFile.scompare1=0xdeadbeef; //ToDo
-	gdbRegFile.acclo=0xdeadbeef; //ToDo
-	gdbRegFile.acchi=0xdeadbeef; //ToDo
-	gdbRegFile.m0=0xdeadbeef; //ToDo
-	gdbRegFile.m1=0xdeadbeef; //ToDo
-	gdbRegFile.m2=0xdeadbeef; //ToDo
-	gdbRegFile.m3=0xdeadbeef; //ToDo
+
+  struct ExtraRegsFrame *erf = (struct ExtraRegsFrame *) (((uint8_t *) frame) + XT_STK_EXTRA);
+	gdbRegFile.threadptr=erf->threadptr;
+	gdbRegFile.br=erf->br;
+	gdbRegFile.scompare1=erf->scompare1;
+	gdbRegFile.acclo=erf->acclo;
+	gdbRegFile.acchi=erf->acchi;
+	gdbRegFile.m0=erf->m[0];
+	gdbRegFile.m1=erf->m[1];
+	gdbRegFile.m2=erf->m[2];
+	gdbRegFile.m3=erf->m[3];
 	gdbRegFile.expstate=frame->exccause; //ToDo
+	gdbRegFile.f64r_lo=erf->f64_lo;
+	gdbRegFile.f64r_hi=erf->f64_hi;
+	gdbRegFile.f64s=erf->f64_s;
 }
 
 

@@ -2361,6 +2361,90 @@ UBaseType_t uxTaskGetNumberOfTasks( void )
 #endif /* configUSE_TRACE_FACILITY */
 /*----------------------------------------------------------*/
 
+static void prvListTaskHandlesWithinSingleList( TaskHandle_t *pxTaskHandleArray, UBaseType_t *uxTask, const UBaseType_t uxArraySize, List_t *pxList )
+{
+	volatile TCB_t *pxNextTCB, *pxFirstTCB;
+
+	if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
+	{
+		listGET_OWNER_OF_NEXT_ENTRY( pxFirstTCB, pxList );
+
+		do
+		{
+			listGET_OWNER_OF_NEXT_ENTRY( pxNextTCB, pxList );
+
+			if( *uxTask >= uxArraySize )
+			{
+				break;
+			}
+
+			pxTaskHandleArray[ *uxTask ] = ( TaskHandle_t ) pxNextTCB;
+
+			(*uxTask)++;
+
+		} while( pxNextTCB != pxFirstTCB );
+	}
+	else
+	{
+		mtCOVERAGE_TEST_MARKER();
+	}
+}
+
+UBaseType_t uxTaskGetTaskHandles( TaskHandle_t * const pxTaskHandleArray, const UBaseType_t uxArraySize )
+{
+	UBaseType_t uxTask = 0, i = 0;
+
+	vTaskSuspendAll(); //WARNING: This only suspends one CPU. ToDo: suspend others as well. Mux using taskQueueMutex maybe?
+	{
+		/* Fill in an TaskStatus_t structure with information on each
+		task in the Ready state. */
+		i = configMAX_PRIORITIES;
+		do
+		{
+			i--;
+			prvListTaskHandlesWithinSingleList( pxTaskHandleArray, &uxTask, uxArraySize, &( pxReadyTasksLists[ i ] ) );
+
+		} while( i > ( UBaseType_t ) tskIDLE_PRIORITY ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
+
+		/* Fill in an TaskStatus_t structure with information on each
+		task in the Blocked state. */
+		prvListTaskHandlesWithinSingleList( pxTaskHandleArray, &uxTask, uxArraySize, ( List_t * ) pxDelayedTaskList );
+		prvListTaskHandlesWithinSingleList( pxTaskHandleArray, &uxTask, uxArraySize, ( List_t * ) pxOverflowDelayedTaskList );
+
+		#if( INCLUDE_vTaskDelete == 1 )
+		{
+			prvListTaskHandlesWithinSingleList( pxTaskHandleArray, &uxTask, uxArraySize, &xTasksWaitingTermination );
+		}
+		#endif
+
+		#if ( INCLUDE_vTaskSuspend == 1 )
+		{
+			prvListTaskHandlesWithinSingleList( pxTaskHandleArray, &uxTask, uxArraySize, &xSuspendedTaskList );
+		}
+		#endif
+	}
+	( void ) xTaskResumeAll();
+
+	/* Convention: First num_cpus slots will have current task for that cpu. */
+	for (i = 0; i < portNUM_PROCESSORS; i++) {
+		if (pxCurrentTCB[i] == NULL || pxCurrentTCB == pxTaskHandleArray[i]) {
+			continue;
+		} else {
+			UBaseType_t j;
+			for (j = i; j < uxTask; j++) {
+				if (pxTaskHandleArray[j] == pxCurrentTCB[i]) {
+					TaskHandle_t tmp = pxTaskHandleArray[i];
+					pxTaskHandleArray[i] = pxTaskHandleArray[j];
+					pxTaskHandleArray[j] = tmp;
+					break;
+				}
+			}
+		}
+	}
+
+	return uxTask;
+}
+
 #if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )
 
 	TaskHandle_t xTaskGetIdleTaskHandle( void )
