@@ -1,3 +1,6 @@
+/* TODO(rojer): Merge our CD support with upstream */
+
+#if 0
 // Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -566,3 +569,95 @@ void esp_core_dump_init()
 
 #endif
 
+#else
+
+#ifndef BOOTLOADER_BUILD
+
+/*
+ * Copyright (c) 2014-2016 Cesanta Software Limited
+ * All rights reserved
+ */
+
+#include <string.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/xtensa_api.h"
+
+#include "esp_gdbstub.h"
+#include "esp_panic.h"
+
+#include "mgos_core_dump.h"
+
+void esp_core_dump_to_uart(XtExcFrame *frame) {
+  dumpHwToRegfile(frame);
+  esp_clear_watchpoint(0);
+  esp_clear_watchpoint(1);
+  mgos_cd_write();
+}
+
+void esp32_cd_dump_regs(void) {
+  mgos_cd_write_section(MGOS_CORE_DUMP_SECTION_REGS, &gdbRegFile, sizeof(gdbRegFile));
+}
+
+void esp32_cd_dump_dram(void) {
+  mgos_cd_write_section("DRAM", (void *) 0x3FFAE000, 0x52000);
+}
+
+void esp_core_dump_init() {
+  mgos_cd_register_section_writer(esp32_cd_dump_regs);
+  mgos_cd_register_section_writer(esp32_cd_dump_dram);
+}
+
+size_t mgos_freertos_extract_regs(StackType_t *sp, void *buf, size_t buf_size) {
+  GdbRegFile *rf = (GdbRegFile *) buf;
+  if (buf_size < sizeof(*rf)) return 0;
+  uint32_t exit = *sp;
+  if (exit != 0) {
+    // Exception frame.
+    const XtExcFrame *ef = (const XtExcFrame *) sp;
+    rf->pc = ef->pc;
+    rf->ps = ef->ps;
+    memcpy(&rf->a[0], &ef->a0, 16 * 4);
+    rf->lbeg = ef->lbeg;
+    rf->lend = ef->lend;
+    rf->lcount = ef->lcount;
+    rf->sar = ef->sar;
+    rf->expstate = ef->exccause;
+    const struct ExtraRegsFrame *erf = (struct ExtraRegsFrame *) (((uint8_t *) ef) + XT_STK_EXTRA);
+    rf->threadptr = erf->threadptr;
+    rf->br = erf->br;
+    rf->scompare1 = erf->scompare1;
+    rf->acclo = erf->acclo;
+    rf->acchi = erf->acchi;
+    rf->m0 = erf->m[0];
+    rf->m1 = erf->m[1];
+    rf->m2 = erf->m[2];
+    rf->m3 = erf->m[3];
+    rf->f64r_lo = erf->f64_lo;
+    rf->f64r_hi = erf->f64_hi;
+    rf->f64s = erf->f64_s;
+  } else {
+    // Solicited rescheduling.
+    const XtSolFrame *sf = (const XtSolFrame *) sp;
+    rf->pc = sf->pc;
+    rf->ps = sf->ps;
+    memcpy(&rf->a[0], &sf->a0, 4 * 4);
+  }
+  // All windows have been spilled.
+  rf->windowbase = 0;
+  rf->windowstart = 1;
+  if (rf->pc & 0x80000000) rf->pc = (rf->pc & 0x3fffffff) | 0x40000000;
+  if (rf->a[0] & 0x80000000) rf->a[0] = (rf->a[0] & 0x3fffffff) | 0x40000000;
+  return sizeof(*rf);
+}
+
+#else
+
+void esp_core_dump_to_uart(void *frame) {
+  (void) frame;
+}
+
+#endif
+
+#endif
