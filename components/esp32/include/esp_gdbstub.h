@@ -19,4 +19,56 @@
 
 void esp_gdbstub_panic_handler(XtExcFrame *frame) __attribute__((noreturn));
 
+//Register file in the format exp108 gdb port expects it.
+//Inspired by gdb/regformats/reg-xtensa.dat
+typedef struct {
+	uint32_t pc;
+	uint32_t a[64];
+	uint32_t lbeg;
+	uint32_t lend;
+	uint32_t lcount;
+	uint32_t sar;
+	uint32_t windowbase;
+	uint32_t windowstart;
+	uint32_t configid0;
+	uint32_t configid1;
+	uint32_t ps;
+	uint32_t threadptr;
+	uint32_t br;
+	uint32_t scompare1;
+	uint32_t acclo;
+	uint32_t acchi;
+	uint32_t m0;
+	uint32_t m1;
+	uint32_t m2;
+	uint32_t m3;
+	uint32_t expstate;  //I'm going to assume this is exccause...
+	uint32_t f64r_lo;
+	uint32_t f64r_hi;
+	uint32_t f64s;
+	uint32_t f[16];
+	uint32_t fcr;
+	uint32_t fsr;
+} GdbRegFile;
+
+extern GdbRegFile gdbRegFile;
+
+/*
+ * Extra register state, located at offset XT_STK_EXTRA within the frame.
+ * Structure deduced from xthal_save/restore_extra_nw.
+ */
+struct ExtraRegsFrame {
+  uint32_t threadptr;  // 0
+  uint32_t acclo;      // 4
+  uint32_t acchi;      // 8
+  uint32_t br;         // 12
+  uint32_t scompare1;  // 16
+  uint32_t m[4];       // 20, 24, 28, 32
+  uint32_t f64_lo;     // 36
+  uint32_t f64_hi;     // 40
+  uint32_t f64_s;      // 44
+};
+
+void dumpHwToRegfile(XtExcFrame *frame);
+
 #endif
