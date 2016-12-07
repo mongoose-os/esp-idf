@@ -417,11 +417,13 @@ void start_cpu0_default(void)
 
 #if CONFIG_ESP32_ENABLE_COREDUMP
     esp_core_dump_init();
+#if CONFIG_ESP32_ENABLE_COREDUMP_TO_FLASH
     size_t core_data_sz = 0;
     size_t core_data_addr = 0;
     if (esp_core_dump_image_get(&core_data_addr, &core_data_sz) == ESP_OK && core_data_sz > 0) {
         ESP_LOGI(TAG, "Found core dump %d bytes in flash @ 0x%x", core_data_sz, core_data_addr);
     }
+#endif
 #endif
 
 #if CONFIG_SW_COEXIST_ENABLE

@@ -156,40 +156,6 @@ static unsigned char ATTR_GDBFN readbyte(unsigned int p) {
 	return *i>>((p&3)*8);
 }
 
-
-//Register file in the format exp108 gdb port expects it.
-//Inspired by gdb/regformats/reg-xtensa.dat
-typedef struct {
-	uint32_t pc;
-	uint32_t a[64];
-	uint32_t lbeg;
-	uint32_t lend;
-	uint32_t lcount;
-	uint32_t sar;
-	uint32_t windowbase;
-	uint32_t windowstart;
-	uint32_t configid0;
-	uint32_t configid1;
-	uint32_t ps;
-	uint32_t threadptr;
-	uint32_t br;
-	uint32_t scompare1;
-	uint32_t acclo;
-	uint32_t acchi;
-	uint32_t m0;
-	uint32_t m1;
-	uint32_t m2;
-	uint32_t m3;
-	uint32_t expstate;  //I'm going to assume this is exccause...
-	uint32_t f64r_lo;
-	uint32_t f64r_hi;
-	uint32_t f64s;
-	uint32_t f[16];
-	uint32_t fcr;
-	uint32_t fsr;
-} GdbRegFile;
-
-
 GdbRegFile gdbRegFile;
 
 /*
@@ -234,7 +200,7 @@ static void commonRegfile() {
 	gdbRegFile.m3=0xdeadbeef; //ToDo
 }
 
-static void dumpHwToRegfile(XtExcFrame *frame) {
+void dumpHwToRegfile(XtExcFrame *frame) {
 	int i;
 	long *frameAregs=&frame->a0;
 	gdbRegFile.pc=(frame->pc & 0x3fffffffU)|0x40000000U;
@@ -248,6 +214,20 @@ static void dumpHwToRegfile(XtExcFrame *frame) {
 	gdbRegFile.sar=frame->sar;
 	commonRegfile();
 	gdbRegFile.expstate=frame->exccause; //ToDo
+	struct ExtraRegsFrame *erf = (struct ExtraRegsFrame *) (((uint8_t *) frame) + XT_STK_EXTRA);
+	gdbRegFile.threadptr=erf->threadptr;
+	gdbRegFile.br=erf->br;
+	gdbRegFile.scompare1=erf->scompare1;
+	gdbRegFile.acclo=erf->acclo;
+	gdbRegFile.acchi=erf->acchi;
+	gdbRegFile.m0=erf->m[0];
+	gdbRegFile.m1=erf->m[1];
+	gdbRegFile.m2=erf->m[2];
+	gdbRegFile.m3=erf->m[3];
+	gdbRegFile.expstate=frame->exccause; //ToDo
+	gdbRegFile.f64r_lo=erf->f64_lo;
+	gdbRegFile.f64r_hi=erf->f64_hi;
+	gdbRegFile.f64s=erf->f64_s;
 }
 
 //Send the reason execution is stopped to GDB.
