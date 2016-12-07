@@ -126,6 +126,11 @@ bool esp_backtrace_get_next_frame(esp_backtrace_frame_t *frame);
  */
 esp_err_t esp_backtrace_print(const esp_backtrace_frame_t *stk, int depth);
 
+void panicPutChar(char c);
+void panicPutStr(const char *c);
+void panicPutHex(int a);
+void panicPutDec(int a);
+
 #endif
 #ifdef __cplusplus
 }

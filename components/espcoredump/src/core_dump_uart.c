@@ -20,7 +20,46 @@
 
 const static DRAM_ATTR char TAG[] __attribute__((unused)) = "esp_core_dump_uart";
 
-#if CONFIG_ESP32_ENABLE_COREDUMP_TO_UART
+#if 1 // CONFIG_ESP32_ENABLE_COREDUMP_TO_UART
+
+#include "esp_debug_helpers.h"
+#include "esp_gdbstub_common.h"
+
+#include "mgos_core_dump.h"
+
+static esp_gdbstub_gdb_regfile_t s_gdb_reg_file;
+
+static IRAM_ATTR void esp32_cd_dump_regs(void) {
+  mgos_cd_write_section(MGOS_CORE_DUMP_SECTION_REGS, &s_gdb_reg_file, sizeof(s_gdb_reg_file));
+}
+
+static IRAM_ATTR void esp32_cd_dump_dram(void) {
+  mgos_cd_write_section("DRAM", (void *) 0x3FFAE000, 0x52000);
+}
+
+IRAM_ATTR void esp_core_dump_to_uart(XtExcFrame *frame) {
+  esp_gdbstub_frame_to_regfile(frame, &s_gdb_reg_file);
+  esp_clear_watchpoint(0);
+  esp_clear_watchpoint(1);
+  mgos_cd_register_section_writer(esp32_cd_dump_regs);
+  mgos_cd_register_section_writer(esp32_cd_dump_dram);
+  mgos_cd_write();
+}
+
+typedef struct {
+    StackType_t *top_of_stack;
+    /* Other members aren't needed */
+} dummy_tcb_t;
+
+size_t mgos_freertos_extract_regs(StackType_t *sp, void *buf, size_t buf_size) {
+  esp_gdbstub_gdb_regfile_t *rf = (esp_gdbstub_gdb_regfile_t *) buf;
+  if (buf_size < sizeof(*rf)) return 0;
+  dummy_tcb_t tcb = { .top_of_stack = sp };
+  esp_gdbstub_tcb_to_regfile((TaskHandle_t) &tcb, rf);
+  return sizeof(*rf);
+}
+
+#else
 
 static void esp_core_dump_b64_encode(const uint8_t *src, uint32_t src_len, uint8_t *dst) {
     const static DRAM_ATTR char b64[] =

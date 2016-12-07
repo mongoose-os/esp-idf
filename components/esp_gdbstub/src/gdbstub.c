@@ -160,7 +160,7 @@ int esp_gdbstub_handle_command(unsigned char *cmd, int len)
 
 /* Everything below is related to the support for listing FreeRTOS tasks as threads in GDB */
 
-#ifdef CONFIG_ESP_GDBSTUB_SUPPORT_TASKS
+#if 1 //def CONFIG_ESP_GDBSTUB_SUPPORT_TASKS
 
 static void init_task_info()
 {

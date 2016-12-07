@@ -21,6 +21,11 @@
 #include "esp_gdbstub.h"
 #include "sdkconfig.h"
 
+#ifndef CONFIG_ESP_GDBSTUB_SUPPORT_TASKS
+#define CONFIG_ESP_GDBSTUB_SUPPORT_TASKS 1
+#define CONFIG_ESP_GDBSTUB_MAX_TASKS 32
+#endif
+
 #ifdef CONFIG_ESP_GDBSTUB_SUPPORT_TASKS
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

@@ -163,6 +163,7 @@ bool bootloader_utility_load_partition_table(bootloader_state_t* bs)
                 break;
             case PART_SUBTYPE_DATA_NVS_KEYS:
                 partition_usage = "NVS keys";
+                break;
             case PART_SUBTYPE_DATA_FS:
                 partition_usage = "FS";
                 break;
