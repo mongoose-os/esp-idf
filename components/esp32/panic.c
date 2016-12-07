@@ -61,13 +61,13 @@
 
 #if !CONFIG_ESP32_PANIC_SILENT_REBOOT
 //printf may be broken, so we fix our own printing fns...
-static void panicPutChar(char c)
+void panicPutChar(char c)
 {
     while (((READ_PERI_REG(UART_STATUS_REG(CONFIG_CONSOLE_UART_NUM)) >> UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT) >= 126) ;
     WRITE_PERI_REG(UART_FIFO_REG(CONFIG_CONSOLE_UART_NUM), c);
 }
 
-static void panicPutStr(const char *c)
+void panicPutStr(const char *c)
 {
     int x = 0;
     while (c[x] != 0) {
@@ -76,7 +76,7 @@ static void panicPutStr(const char *c)
     }
 }
 
-static void panicPutHex(int a)
+void panicPutHex(int a)
 {
     int x;
     int c;
@@ -91,7 +91,7 @@ static void panicPutHex(int a)
     }
 }
 
-static void panicPutDec(int a)
+void panicPutDec(int a)
 {
     int n1, n2;
     n1 = a % 10;
@@ -105,10 +105,10 @@ static void panicPutDec(int a)
 }
 #else
 //No printing wanted. Stub out these functions.
-static void panicPutChar(char c) { }
-static void panicPutStr(const char *c) { }
-static void panicPutHex(int a) { }
-static void panicPutDec(int a) { }
+void panicPutChar(char c) { }
+void panicPutStr(const char *c) { }
+void panicPutHex(int a) { }
+void panicPutDec(int a) { }
 #endif
 
 void  __attribute__((weak)) vApplicationStackOverflowHook( TaskHandle_t xTask, signed char *pcTaskName )
@@ -347,7 +347,7 @@ static void esp_panic_wdt_start()
     REG_SET_FIELD(RTC_CNTL_WDTCONFIG0_REG, RTC_CNTL_WDT_STG0, RTC_WDT_STG_SEL_RESET_SYSTEM);
     // 64KB of core dump data (stacks of about 30 tasks) will produce ~85KB base64 data.
     // @ 115200 UART speed it will take more than 6 sec to print them out.
-    WRITE_PERI_REG(RTC_CNTL_WDTCONFIG1_REG, rtc_clk_slow_freq_get_hz() * 7);
+    WRITE_PERI_REG(RTC_CNTL_WDTCONFIG1_REG, rtc_clk_slow_freq_get_hz() * 70);
     REG_SET_BIT(RTC_CNTL_WDTCONFIG0_REG, RTC_CNTL_WDT_EN);
     WRITE_PERI_REG(RTC_CNTL_WDTWPROTECT_REG, 0);
 }
@@ -469,6 +469,7 @@ static __attribute__((noreturn)) void commonErrorHandler(XtExcFrame *frame)
     panicPutStr("Entering gdb stub now.\r\n");
     esp_gdbstub_panic_handler(frame);
 #else
+
 #if CONFIG_ESP32_ENABLE_COREDUMP
     disableAllWdts();
 #if CONFIG_ESP32_ENABLE_COREDUMP_TO_FLASH
@@ -480,6 +481,7 @@ static __attribute__((noreturn)) void commonErrorHandler(XtExcFrame *frame)
     reconfigureAllWdts();
 #endif /* CONFIG_ESP32_ENABLE_COREDUMP */
     esp_panic_wdt_stop();
+
 #if CONFIG_ESP32_PANIC_PRINT_REBOOT || CONFIG_ESP32_PANIC_SILENT_REBOOT
     panicPutStr("Rebooting...\r\n");
     if (frame->exccause != PANIC_RSN_CACHEERR) {
