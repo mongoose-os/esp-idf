@@ -47,13 +47,13 @@
 
 #if !CONFIG_ESP32_PANIC_SILENT_REBOOT
 //printf may be broken, so we fix our own printing fns...
-static void panicPutChar(char c)
+void panicPutChar(char c)
 {
     while (((READ_PERI_REG(UART_STATUS_REG(0)) >> UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT) >= 126) ;
     WRITE_PERI_REG(UART_FIFO_REG(0), c);
 }
 
-static void panicPutStr(const char *c)
+void panicPutStr(const char *c)
 {
     int x = 0;
     while (c[x] != 0) {
@@ -62,7 +62,7 @@ static void panicPutStr(const char *c)
     }
 }
 
-static void panicPutHex(int a)
+void panicPutHex(int a)
 {
     int x;
     int c;
@@ -77,7 +77,7 @@ static void panicPutHex(int a)
     }
 }
 
-static void panicPutDec(int a)
+void panicPutDec(int a)
 {
     int n1, n2;
     n1 = a % 10;
@@ -91,10 +91,10 @@ static void panicPutDec(int a)
 }
 #else
 //No printing wanted. Stub out these functions.
-static void panicPutChar(char c) { }
-static void panicPutStr(const char *c) { }
-static void panicPutHex(int a) { }
-static void panicPutDec(int a) { }
+void panicPutChar(char c) { }
+void panicPutStr(const char *c) { }
+void panicPutHex(int a) { }
+void panicPutDec(int a) { }
 #endif
 
 void  __attribute__((weak)) vApplicationStackOverflowHook( TaskHandle_t xTask, signed char *pcTaskName )
@@ -267,7 +267,6 @@ static void reconfigureAllWdts()
     TIMERG1.wdt_wprotect = 0;
 }
 
-#if CONFIG_ESP32_PANIC_GDBSTUB || CONFIG_ESP32_PANIC_PRINT_HALT
 /*
   This disables all the watchdogs for when we call the gdbstub.
 */
@@ -281,7 +280,7 @@ static void disableAllWdts()
     TIMERG0.wdt_wprotect = 0;
 }
 
-#endif
+void dumpCore(XtExcFrame *frame);
 
 static inline bool stackPointerIsSane(uint32_t sp)
 {
@@ -361,6 +360,8 @@ static void commonErrorHandler(XtExcFrame *frame)
 
     /* With windowed ABI backtracing is easy, let's do it. */
     doBacktrace(frame);
+
+    dumpCore(frame);
 
 #if CONFIG_ESP32_PANIC_GDBSTUB
     disableAllWdts();
