@@ -1,3 +1,6 @@
+/* TODO(rojer): Merge our CD support with upstream */
+
+#if 0
 // Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -560,3 +563,127 @@ void esp_core_dump_init()
 
 #endif
 
+#else
+
+/*
+ * Copyright (c) 2014-2016 Cesanta Software Limited
+ * All rights reserved
+ */
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/xtensa_api.h"
+
+#include "soc/rtc_cntl_reg.h"
+#include "soc/timer_group_struct.h"
+#include "soc/timer_group_reg.h"
+
+#include "esp_gdbstub.h"
+#include "esp_panic.h"
+
+#ifndef NOINSTR
+#define NOINSTR __attribute__((no_instrument_function))
+#endif
+
+#define BASE64_ENCODE_BODY                                                \
+  static const char *b64 =                                                \
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; \
+  int i, j, a, b, c;                                                      \
+                                                                          \
+  for (i = j = 0; i < src_len; i += 3) {                                  \
+    a = src[i];                                                           \
+    b = i + 1 >= src_len ? 0 : src[i + 1];                                \
+    c = i + 2 >= src_len ? 0 : src[i + 2];                                \
+                                                                          \
+    BASE64_OUT(b64[a >> 2]);                                              \
+    BASE64_OUT(b64[((a & 3) << 4) | (b >> 4)]);                           \
+    if (i + 1 < src_len) {                                                \
+      BASE64_OUT(b64[(b & 15) << 2 | (c >> 6)]);                          \
+    }                                                                     \
+    if (i + 2 < src_len) {                                                \
+      BASE64_OUT(b64[c & 63]);                                            \
+    }                                                                     \
+  }                                                                       \
+                                                                          \
+  while (j % 4 != 0) {                                                    \
+    BASE64_OUT('=');                                                      \
+  }                                                                       \
+  BASE64_FLUSH()
+
+#define BASE64_OUT(ch) \
+  do {                 \
+    dst[j++] = (ch);   \
+  } while (0)
+
+#define BASE64_FLUSH() \
+  do {                 \
+    dst[j++] = '\0';   \
+  } while (0)
+
+static void b64Encode(const unsigned char *src, int src_len, char *dst) {
+  BASE64_ENCODE_BODY;
+}
+
+/* address must be aligned to 4 and size must be multiple of 4 */
+static NOINSTR void emit_core_dump_section(const char *name, uint32_t addr,
+                                           uint32_t size) {
+  char buf[64 + 4];
+  uint32_t end = addr + size;
+
+  snprintf(buf, sizeof(buf), ",\n\"%s\": {\"addr\": %u, \"data\": \"\n", name, addr);
+  panicPutStr(buf);
+
+  while (addr < end) {
+    size_t len = end - addr;
+    if (len > 48) len = 48;
+    /* Copy to stack to avoid alignment restrictions. */
+    char *tmp = buf + (sizeof(buf) - len);
+    memcpy(tmp, (const void *) addr, len);
+    b64Encode((const unsigned char *) tmp, len, buf);
+    addr += len;
+    for (size_t i = 0; buf[i] != '\0'; i++) {
+      panicPutChar(buf[i]);
+    }
+    if (addr % 96 == 0) panicPutChar('\n');
+    /* Feed the Cerberus. */
+    WRITE_PERI_REG(RTC_CNTL_WDTWPROTECT_REG, RTC_CNTL_WDT_WKEY_VALUE);
+    WRITE_PERI_REG(RTC_CNTL_WDTFEED_REG, 1);
+    WRITE_PERI_REG(RTC_CNTL_WDTWPROTECT_REG, 0);
+  }
+  panicPutStr("\"}");
+}
+
+static void emit_task_handles() {
+  char buf[10];
+  TaskHandle_t tasks[32];
+  int numTasks = uxTaskGetTaskHandles(tasks, sizeof(tasks) / sizeof(tasks[0]));
+  panicPutStr(",\n\"tasks\": [");
+  for (int i = 0; i < numTasks; i++) {
+    if (i > 0) panicPutChar(',');
+    sprintf(buf, "%u", (uint32_t) tasks[i]);
+    panicPutStr(buf);
+  }
+  panicPutChar(']');
+}
+
+void esp_core_dump_to_uart(XtExcFrame *frame) {
+  panicPutStr("--- BEGIN CORE DUMP ---\n"
+              "{\"arch\": \"ESP32\", \"cause\":");
+  panicPutDec(frame->exccause);
+  dumpHwToRegfile(frame);
+  emit_core_dump_section("REGS", (uint32_t) &gdbRegFile, sizeof(gdbRegFile));
+  emit_core_dump_section("DRAM", 0x3FFAE000, 0x52000);
+  emit_core_dump_section("IRAM", 0x40080000, 0x20000);
+  emit_task_handles();
+  panicPutStr("\n}\n---- END CORE DUMP ----\n");
+}
+
+void esp_core_dump_init() {
+}
+
+#endif
