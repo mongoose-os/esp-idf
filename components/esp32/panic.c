@@ -64,13 +64,13 @@
 
 #if !CONFIG_ESP32_PANIC_SILENT_REBOOT
 //printf may be broken, so we fix our own printing fns...
-static void panicPutChar(char c)
+void panicPutChar(char c)
 {
     while (((READ_PERI_REG(UART_STATUS_REG(CONFIG_CONSOLE_UART_NUM)) >> UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT) >= 126) ;
     WRITE_PERI_REG(UART_FIFO_REG(CONFIG_CONSOLE_UART_NUM), c);
 }
 
-static void panicPutStr(const char *c)
+void panicPutStr(const char *c)
 {
     int x = 0;
     while (c[x] != 0) {
@@ -79,7 +79,7 @@ static void panicPutStr(const char *c)
     }
 }
 
-static void panicPutHex(int a)
+void panicPutHex(int a)
 {
     int x;
     int c;
@@ -94,7 +94,7 @@ static void panicPutHex(int a)
     }
 }
 
-static void panicPutDec(int a)
+void panicPutDec(int a)
 {
     int n1, n2;
     n1 = a % 10;
@@ -108,10 +108,10 @@ static void panicPutDec(int a)
 }
 #else
 //No printing wanted. Stub out these functions.
-static void panicPutChar(char c) { }
-static void panicPutStr(const char *c) { }
-static void panicPutHex(int a) { }
-static void panicPutDec(int a) { }
+void panicPutChar(char c) { }
+void panicPutStr(const char *c) { }
+void panicPutHex(int a) { }
+void panicPutDec(int a) { }
 #endif
 
 void  __attribute__((weak)) vApplicationStackOverflowHook( TaskHandle_t xTask, signed char *pcTaskName )
@@ -569,9 +569,8 @@ static __attribute__((noreturn)) void commonErrorHandler(XtExcFrame *frame)
         rtc_wdt_set_length_of_reset_signal(RTC_WDT_SYS_RESET_SIG, RTC_WDT_LENGTH_3_2us);
         rtc_wdt_set_length_of_reset_signal(RTC_WDT_CPU_RESET_SIG, RTC_WDT_LENGTH_3_2us);
         rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_SYSTEM);
-        // 64KB of core dump data (stacks of about 30 tasks) will produce ~85KB base64 data.
-        // @ 115200 UART speed it will take more than 6 sec to print them out.
-        rtc_wdt_set_time(RTC_WDT_STAGE0, 7000);
+        // CD usually takes ~40s @ 115200.
+        rtc_wdt_set_time(RTC_WDT_STAGE0, 60000);
         rtc_wdt_enable();
         rtc_wdt_protect_on();
     }
