@@ -120,8 +120,10 @@ COMPONENT_PATHS += $(abspath $(SRCDIRS))
 COMPONENT_PATHS_BUILDABLE := $(foreach cp,$(COMPONENT_PATHS),$(if $(wildcard $(cp)/component.mk),$(cp)))
 
 # If TESTS_ALL set to 1, set TEST_COMPONENTS to all components
+ifdef TESTS_ALL
 ifeq ($(TESTS_ALL),1)
 TEST_COMPONENTS := $(COMPONENTS)
+endif
 endif
 
 # If TEST_COMPONENTS is set, create variables for building unit tests
@@ -130,6 +132,7 @@ override TEST_COMPONENTS := $(foreach comp,$(TEST_COMPONENTS),$(wildcard $(IDF_P
 TEST_COMPONENT_PATHS := $(TEST_COMPONENTS)
 TEST_COMPONENT_NAMES :=  $(foreach comp,$(TEST_COMPONENTS),$(lastword $(subst /, ,$(dir $(comp))))_test)
 else
+TEST_COMPONENT_PATHS :=
 TEST_COMPONENT_NAMES :=
 endif
 
@@ -208,6 +211,7 @@ LDFLAGS ?= -nostdlib \
 
 # CPPFLAGS used by C preprocessor
 # If any flags are defined in application Makefile, add them at the end. 
+EXTRA_CPPFLAGS ?=
 CPPFLAGS := -DESP_PLATFORM -D IDF_VER=\"$(IDF_VER)\" -MMD -MP $(CPPFLAGS) $(EXTRA_CPPFLAGS)
 
 # Warnings-related flags relevant both for C and C++
@@ -239,6 +243,7 @@ OPTIMIZATION_FLAGS += -ggdb
 
 # List of flags to pass to C compiler
 # If any flags are defined in application Makefile, add them at the end.
+EXTRA_CFLAGS ?=
 CFLAGS := $(strip \
 	-std=gnu99 \
 	$(OPTIMIZATION_FLAGS) \
@@ -249,6 +254,7 @@ CFLAGS := $(strip \
 
 # List of flags to pass to C++ compiler
 # If any flags are defined in application Makefile, add them at the end.
+EXTRA_CXXFLAGS ?=
 CXXFLAGS := $(strip \
 	-std=gnu++11 \
 	-fno-exceptions \
@@ -410,7 +416,7 @@ check-submodules: $(IDF_PATH)/$(1)/.git
 $(IDF_PATH)/$(1)/.git:
 	@echo "WARNING: Missing submodule $(1)..."
 	[ -d ${IDF_PATH}/.git ] || ( echo "ERROR: esp-idf must be cloned from git to work."; exit 1)
-	[ -x $(which git) ] || ( echo "ERROR: Need to run 'git submodule init $(1)' in esp-idf root directory."; exit 1)
+	[ -x $$(which git) ] || ( echo "ERROR: Need to run 'git submodule init $(1)' in esp-idf root directory."; exit 1)
 	@echo "Attempting 'git submodule update --init $(1)' in esp-idf root directory..."
 	cd ${IDF_PATH} && git submodule update --init $(1)
 

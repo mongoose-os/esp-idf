@@ -141,7 +141,7 @@ static int conf_set_sym_val(struct symbol *sym, int def, int def_flags, char *p)
 			sym->flags |= def_flags;
 			break;
 		}
-		if (p[0] == 'n') {
+		if (p[0] == 'n' || p[0] == '\0') {
 			sym->def[def].tri = no;
 			sym->flags |= def_flags;
 			break;
@@ -490,12 +490,7 @@ kconfig_print_symbol(FILE *fp, struct symbol *sym, const char *value, void *arg)
 	case S_BOOLEAN:
 	case S_TRISTATE:
 		if (*value == 'n') {
-			bool skip_unset = (arg != NULL);
-
-			if (!skip_unset)
-				fprintf(fp, "# %s%s is not set\n",
-				    CONFIG_, sym->name);
-			return;
+			value = "";
 		}
 		break;
 	default:
@@ -992,9 +987,9 @@ int conf_write_autoconf(void)
 			continue;
 
 		/* write symbol to auto.conf, tristate and header files */
-		conf_write_symbol(out, sym, &kconfig_printer_cb, (void *)1);
+		conf_write_symbol(out, sym, &kconfig_printer_cb, NULL);
 
-		conf_write_symbol(tristate, sym, &tristate_printer_cb, (void *)1);
+		conf_write_symbol(tristate, sym, &tristate_printer_cb, NULL);
 
 		conf_write_symbol(out_h, sym, &header_printer_cb, NULL);
 	}
