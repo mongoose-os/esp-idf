@@ -15,7 +15,6 @@ BOOTLOADER_BUILD_DIR=$(abspath $(BUILD_DIR_BASE)/bootloader)
 BOOTLOADER_BIN=$(BOOTLOADER_BUILD_DIR)/bootloader.bin
 
 # signing key path is resolved relative to the project directory
-CONFIG_SECURE_BOOT_SIGNING_KEY ?=
 SECURE_BOOT_SIGNING_KEY=$(abspath $(call dequote,$(CONFIG_SECURE_BOOT_SIGNING_KEY)))
 export SECURE_BOOT_SIGNING_KEY  # used by bootloader_support component
 

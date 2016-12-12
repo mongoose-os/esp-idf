@@ -25,7 +25,7 @@ KCONFIG_TOOL_ENV=KCONFIG_AUTOHEADER=$(abspath $(BUILD_DIR_BASE)/include/sdkconfi
 	COMPONENT_KCONFIGS="$(COMPONENT_KCONFIGS)" KCONFIG_CONFIG=$(SDKCONFIG) \
 	COMPONENT_KCONFIGS_PROJBUILD="$(COMPONENT_KCONFIGS_PROJBUILD)"
 
-menuconfig: $(KCONFIG_TOOL_DIR)/mconf $(IDF_PATH)/Kconfig $(call prereq_if_explicit,defconfig)
+menuconfig: $(KCONFIG_TOOL_DIR)/conf $(KCONFIG_TOOL_DIR)/mconf $(IDF_PATH)/Kconfig $(call prereq_if_explicit,defconfig)
 	$(summary) MENUCONFIG
 	$(KCONFIG_TOOL_ENV) $(KCONFIG_TOOL_DIR)/mconf $(IDF_PATH)/Kconfig
 
@@ -40,7 +40,7 @@ endif
 endif
 
 # defconfig creates a default config, based on SDKCONFIG_DEFAULTS if present
-defconfig: $(KCONFIG_TOOL_DIR)/mconf $(IDF_PATH)/Kconfig $(BUILD_DIR_BASE)
+defconfig: $(KCONFIG_TOOL_DIR)/conf $(KCONFIG_TOOL_DIR)/mconf $(IDF_PATH)/Kconfig $(BUILD_DIR_BASE)
 	$(summary) DEFCONFIG
 ifneq ("$(wildcard $(SDKCONFIG_DEFAULTS))","")
 	cat $(SDKCONFIG_DEFAULTS) >> $(SDKCONFIG)  # append defaults to sdkconfig, will override existing values
@@ -74,6 +74,6 @@ $(AUTO_CONF_REGEN_TARGET) $(BUILD_DIR_BASE)/include/sdkconfig.h: $(SDKCONFIG) $(
 
 .PHONY: config-clean
 config-clean:
-	$(summary RM CONFIG)
+	$(summary) RM CONFIG
 	$(MAKE) -C $(KCONFIG_TOOL_DIR) clean
 	rm -rf $(BUILD_DIR_BASE)/include/config $(BUILD_DIR_BASE)/include/sdkconfig.h
