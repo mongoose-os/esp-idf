@@ -33,6 +33,13 @@ extern "C" {
 #define ESP_VFS_PATH_MAX 15
 
 /**
+ * Registering a VFS with the this prefix will make it a VFS of last resort:
+ * if there are no better matches, calls will be routed there.
+ * If there are multiple defaults, the last that was registered wins.
+ */
+#define ESP_VFS_DEFAULT ""
+
+/**
  * Default value of flags member in esp_vfs_t structure.
  */
 #define ESP_VFS_FLAG_DEFAULT        0
