@@ -55,10 +55,10 @@ static size_t s_vfs_count = 0;
 esp_err_t esp_vfs_register(const char* base_path, const esp_vfs_t* vfs, void* ctx)
 {
     size_t len = strlen(base_path);
-    if (len < 2 || len > ESP_VFS_PATH_MAX) {
+    if ((len < 2 && len != 0) || len > ESP_VFS_PATH_MAX) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (base_path[0] != '/' || base_path[len - 1] == '/') {
+    if (len > 0 && (base_path[0] != '/' || base_path[len - 1] == '/')) {
         return ESP_ERR_INVALID_ARG;
     }
     vfs_entry_t *entry = (vfs_entry_t*) malloc(sizeof(vfs_entry_t));
@@ -123,8 +123,13 @@ static const char* translate_path(const vfs_entry_t* vfs, const char* src_path)
 static const vfs_entry_t* get_vfs_for_path(const char* path)
 {
     size_t len = strlen(path);
+    const vfs_entry_t* default_vfs = NULL;
     for (size_t i = 0; i < s_vfs_count; ++i) {
         const vfs_entry_t* vfs = s_vfs[i];
+        if (vfs->path_prefix_len == 0) {
+            default_vfs = vfs;
+            continue;
+        }
         if (len < vfs->path_prefix_len + 1) {   // +1 is for the trailing slash after base path
             continue;
         }
@@ -136,7 +141,7 @@ static const vfs_entry_t* get_vfs_for_path(const char* path)
         }
         return vfs;
     }
-    return NULL;
+    return default_vfs;
 }
 
 /*
