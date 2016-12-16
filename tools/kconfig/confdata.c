@@ -981,17 +981,21 @@ int conf_write_autoconf(void)
 
 	conf_write_heading(out_h, &header_printer_cb, NULL);
 
+	/* write symbols to auto.conf, tristate and header files */
 	for_all_symbols(i, sym) {
-		sym_calc_value(sym);
-		if (!(sym->flags & SYMBOL_WRITE) || !sym->name)
-			continue;
-
-		/* write symbol to auto.conf, tristate and header files */
-		conf_write_symbol(out, sym, &kconfig_printer_cb, NULL);
-
-		conf_write_symbol(tristate, sym, &tristate_printer_cb, NULL);
-
-		conf_write_symbol(out_h, sym, &header_printer_cb, NULL);
+		if (!sym->name) continue;
+		if ((sym->flags & SYMBOL_WRITE) ||
+		    /*
+		     * If the symbol is disabled by dependency we still want it in auto.conf
+		     * so that all possible variables are always defined.
+		     */
+		    (sym->dir_dep.expr != NULL && sym->dir_dep.tri == no)) {
+			conf_write_symbol(out, sym, &kconfig_printer_cb, NULL);
+		}
+		if (sym->flags & SYMBOL_WRITE) {
+			conf_write_symbol(tristate, sym, &tristate_printer_cb, NULL);
+			conf_write_symbol(out_h, sym, &header_printer_cb, NULL);
+		}
 	}
 	fclose(out);
 	fclose(tristate);
