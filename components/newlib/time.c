@@ -150,7 +150,7 @@ clock_t IRAM_ATTR _times_r(struct _reent *r, struct tms *ptms)
 }
 
 #if defined( WITH_FRC1 ) || defined( WITH_RTC )
-static uint64_t get_time_since_boot()
+uint64_t get_time_since_boot()
 {
     uint64_t microseconds = 0;
 #ifdef WITH_FRC1
