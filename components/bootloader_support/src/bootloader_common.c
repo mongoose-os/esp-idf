@@ -42,17 +42,37 @@ static const char* TAG = "boot_comm";
 
 uint32_t bootloader_common_ota_select_crc(const esp_ota_select_entry_t *s)
 {
-    return crc32_le(UINT32_MAX, (uint8_t*)&s->ota_seq, 4);
+    esp_ota_select_entry_t tmp;
+    memcpy(&tmp, s, sizeof(tmp));
+    tmp.crc = 0;
+    return crc32_le(UINT32_MAX, (uint8_t *) &tmp, sizeof(tmp));
 }
 
+#if 0
 bool bootloader_common_ota_select_invalid(const esp_ota_select_entry_t *s)
 {
     return s->ota_seq == UINT32_MAX || s->ota_state == ESP_OTA_IMG_INVALID || s->ota_state == ESP_OTA_IMG_ABORTED;
 }
+#endif
 
 bool bootloader_common_ota_select_valid(const esp_ota_select_entry_t *s)
 {
-    return bootloader_common_ota_select_invalid(s) == false && s->crc == bootloader_common_ota_select_crc(s);
+    return s->seq != UINT32_MAX && s->crc == bootloader_common_ota_select_crc(s);
+}
+
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2])
+{
+    const esp_ota_select_entry_t *cs = NULL;
+    bool s0_valid = bootloader_common_ota_select_valid(&s[0]);
+    bool s1_valid = bootloader_common_ota_select_valid(&s[1]);
+    if (s0_valid && s1_valid) {
+        cs = s[0].seq > s[1].seq ? &s[0] : &s[1];
+    } else if (s0_valid) {
+        cs = &s[0];
+    } else if (s1_valid) {
+        cs = &s[1];
+    }
+    return cs;
 }
 
 esp_comm_gpio_hold_t bootloader_common_check_long_hold_gpio(uint32_t num_pin, uint32_t delay_sec)
@@ -204,6 +224,7 @@ esp_err_t bootloader_common_get_sha256_of_partition (uint32_t address, uint32_t 
     return ESP_OK;
 }
 
+#if 0
 int bootloader_common_select_otadata(const esp_ota_select_entry_t *two_otadata, bool *valid_two_otadata, bool max)
 {
     if (two_otadata == NULL || valid_two_otadata == NULL) {
@@ -240,6 +261,7 @@ int bootloader_common_get_active_otadata(esp_ota_select_entry_t *two_otadata)
     valid_two_otadata[1] = bootloader_common_ota_select_valid(&two_otadata[1]);
     return bootloader_common_select_otadata(two_otadata, valid_two_otadata, true);
 }
+#endif
 
 esp_err_t bootloader_common_get_partition_description(const esp_partition_pos_t *partition, esp_app_desc_t *app_desc)
 {
