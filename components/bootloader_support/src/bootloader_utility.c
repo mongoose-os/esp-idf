@@ -242,9 +242,9 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
                 return 0;
             }
         } else  {
-            const esp_ota_select_entry_t *cs = esp_ota_choose_current(ss);
+            const esp_ota_select_entry_t *cs = bootloader_common_ota_choose_current(ss);
             if (cs != NULL) {
-                if ((cs->boot_app_subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_MIN) {
+                if ((cs->boot_app_subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_FLAG) {
                     return (cs->boot_app_subtype & PART_SUBTYPE_OTA_MASK);
                 } else if (cs->boot_app_subtype == PART_SUBTYPE_FACTORY) {
                     return FACTORY_INDEX;

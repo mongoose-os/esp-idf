@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "esp_flash_data_types.h"
+
 /**
  * @brief Calculate crc for the OTA data partition.
  *
@@ -29,3 +31,5 @@ uint32_t bootloader_common_ota_select_crc(const esp_ota_select_entry_t *s);
  * @return    Returns true on valid, false otherwise.
  */
 bool bootloader_common_ota_select_valid(const esp_ota_select_entry_t *s);
+
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2]);
