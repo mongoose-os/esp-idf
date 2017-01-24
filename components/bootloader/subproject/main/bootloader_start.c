@@ -45,6 +45,7 @@
 #include "esp_secure_boot.h"
 #include "esp_flash_encrypt.h"
 #include "esp_flash_partitions.h"
+#include "esp_ota_select.h"
 #include "bootloader_flash.h"
 #include "bootloader_random.h"
 #include "bootloader_config.h"
@@ -63,7 +64,8 @@ static const char* TAG = "boot";
 #define MAP_ERR_MSG "Image contains multiple %s segments. Only the last one will be mapped."
 
 void bootloader_main();
-static void unpack_load_app(const esp_image_metadata_t *data);
+static void unpack_load_app(const esp_image_metadata_t* data,
+                            const esp_partition_pos_t* partition);
 static void print_flash_info(const esp_image_header_t* pfhdr);
 static void set_cache_and_start_app(uint32_t drom_addr,
     uint32_t drom_load_addr,
@@ -71,7 +73,8 @@ static void set_cache_and_start_app(uint32_t drom_addr,
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr);
+    uint32_t entry_addr,
+    uint32_t image_flash_addr);
 static void update_flash_config(const esp_image_header_t* pfhdr);
 static void clock_configure(void);
 static void uart_console_configure(void);
@@ -169,7 +172,7 @@ bool load_partition_table(bootloader_state_t* bs)
     }
 
     ESP_LOGI(TAG, "Partition Table:");
-    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length");
+    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length   Flags");
 
     for(int i = 0; i < num_partitions; i++) {
         const esp_partition_info_t *partition = &partitions[i];
@@ -191,9 +194,8 @@ bool load_partition_table(bootloader_state_t* bs)
                 break;
             default:
                 /* OTA binary */
-                if ((partition->subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_FLAG) {
+                if ((partition->subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_MIN) {
                     bs->ota[partition->subtype & PART_SUBTYPE_OTA_MASK] = partition->pos;
-                    ++bs->app_count;
                     partition_usage = "OTA app";
                 }
                 else {
@@ -214,6 +216,9 @@ bool load_partition_table(bootloader_state_t* bs)
             case PART_SUBTYPE_DATA_WIFI:
                 partition_usage = "WiFi data";
                 break;
+            case PART_SUBTYPE_DATA_SPIFFS:
+                partition_usage = "SPIFFS";
+                break;
             default:
                 partition_usage = "Unknown data";
                 break;
@@ -224,9 +229,11 @@ bool load_partition_table(bootloader_state_t* bs)
         }
 
         /* print partition type info */
-        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x", i, partition->label, partition_usage,
+        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x %08x",
+                 i, partition->label, partition_usage,
                  partition->type, partition->subtype,
-                 partition->pos.offset, partition->pos.size);
+                 partition->pos.offset, partition->pos.size,
+                 partition->flags);
     }
 
     bootloader_munmap(partitions);
@@ -234,205 +241,6 @@ bool load_partition_table(bootloader_state_t* bs)
     ESP_LOGI(TAG,"End of partition table");
     return true;
 }
-
-static uint32_t ota_select_crc(const esp_ota_select_entry_t *s)
-{
-  return crc32_le(UINT32_MAX, (uint8_t*)&s->ota_seq, 4);
-}
-
-static bool ota_select_valid(const esp_ota_select_entry_t *s)
-{
-  return s->ota_seq != UINT32_MAX && s->crc == ota_select_crc(s);
-}
-
-/* indexes used by index_to_partition are the OTA index
-   number, or these special constants */
-#define FACTORY_INDEX (-1)
-#define TEST_APP_INDEX (-2)
-#define INVALID_INDEX (-99)
-
-/* Given a partition index, return the partition position data from the bootloader_state_t structure */
-static esp_partition_pos_t index_to_partition(const bootloader_state_t *bs, int index)
-{
-    if (index == FACTORY_INDEX) {
-        return bs->factory;
-    }
-
-    if (index == TEST_APP_INDEX) {
-        return bs->test;
-    }
-
-    if (index >= 0 && index < MAX_OTA_SLOTS && index < bs->app_count) {
-        return bs->ota[index];
-    }
-
-    esp_partition_pos_t invalid = { 0 };
-    return invalid;
-}
-
-static void log_invalid_app_partition(int index)
-{
-    const char *not_bootable = " is not bootable"; /* save a few string literal bytes */
-    switch(index) {
-    case FACTORY_INDEX:
-        ESP_LOGE(TAG, "Factory app partition%s", not_bootable);
-        break;
-    case TEST_APP_INDEX:
-        ESP_LOGE(TAG, "Factory test app partition%s", not_bootable);
-        break;
-    default:
-        ESP_LOGE(TAG, "OTA app partition slot %d%s", index, not_bootable);
-        break;
-    }
-}
-
-
-/* Return the index of the selected boot partition.
-
-   This is the preferred boot partition, as determined by the partition table &
-   any OTA sequence number found in OTA data.
-
-   This partition will only be booted if it contains a valid app image, otherwise load_boot_image() will search
-   for a valid partition using this selection as the starting point.
-*/
-static int get_selected_boot_partition(const bootloader_state_t *bs)
-{
-    esp_ota_select_entry_t sa,sb;
-    const esp_ota_select_entry_t *ota_select_map;
-
-    if (bs->ota_info.offset != 0) {
-        // partition table has OTA data partition
-        if (bs->ota_info.size < 2 * SPI_SEC_SIZE) {
-            ESP_LOGE(TAG, "ota_info partition size %d is too small (minimum %d bytes)", bs->ota_info.size, sizeof(esp_ota_select_entry_t));
-            return INVALID_INDEX; // can't proceed
-        }
-
-        ESP_LOGD(TAG, "OTA data offset 0x%x", bs->ota_info.offset);
-        ota_select_map = bootloader_mmap(bs->ota_info.offset, bs->ota_info.size);
-        if (!ota_select_map) {
-            ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", bs->ota_info.offset, bs->ota_info.size);
-            return INVALID_INDEX; // can't proceed
-        }
-        memcpy(&sa, ota_select_map, sizeof(esp_ota_select_entry_t));
-        memcpy(&sb, (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(esp_ota_select_entry_t));
-        bootloader_munmap(ota_select_map);
-
-        ESP_LOGD(TAG, "OTA sequence values A 0x%08x B 0x%08x", sa.ota_seq, sb.ota_seq);
-        if(sa.ota_seq == UINT32_MAX && sb.ota_seq == UINT32_MAX) {
-            ESP_LOGD(TAG, "OTA sequence numbers both empty (all-0xFF)");
-            if (bs->factory.offset != 0) {
-                ESP_LOGI(TAG, "Defaulting to factory image");
-                return FACTORY_INDEX;
-            } else {
-                ESP_LOGI(TAG, "No factory image, trying OTA 0");
-                return 0;
-            }
-        } else  {
-            bool ota_valid = false;
-            const char *ota_msg;
-            int ota_seq; // Raw OTA sequence number. May be more than # of OTA slots
-            if(ota_select_valid(&sa) && ota_select_valid(&sb)) {
-                ota_valid = true;
-                ota_msg = "Both OTA values";
-                ota_seq = MAX(sa.ota_seq, sb.ota_seq) - 1;
-            } else if(ota_select_valid(&sa)) {
-                ota_valid = true;
-                ota_msg = "Only OTA sequence A is";
-                ota_seq = sa.ota_seq - 1;
-            } else if(ota_select_valid(&sb)) {
-                ota_valid = true;
-                ota_msg = "Only OTA sequence B is";
-                ota_seq = sb.ota_seq - 1;
-            }
-
-            if (ota_valid) {
-                int ota_slot = ota_seq % bs->app_count; // Actual OTA partition selection
-                ESP_LOGD(TAG, "%s valid. Mapping seq %d -> OTA slot %d", ota_msg, ota_seq, ota_slot);
-                return ota_slot;
-            } else if (bs->factory.offset != 0) {
-                ESP_LOGE(TAG, "ota data partition invalid, falling back to factory");
-                return FACTORY_INDEX;
-            } else {
-                ESP_LOGE(TAG, "ota data partition invalid and no factory, will try all partitions");
-                return FACTORY_INDEX;
-            }
-        }
-    }
-
-    // otherwise, start from factory app partition and let the search logic
-    // proceed from there
-    return FACTORY_INDEX;
-}
-
-/* Return true if a partition has a valid app image that was successfully loaded */
-static bool try_load_partition(const esp_partition_pos_t *partition, esp_image_metadata_t *data)
-{
-    if (partition->size == 0) {
-        ESP_LOGD(TAG, "Can't boot from zero-length partition");
-        return false;
-    }
-
-    if (esp_image_load(ESP_IMAGE_LOAD, partition, data) == ESP_OK) {
-        ESP_LOGI(TAG, "Loaded app from partition at offset 0x%x",
-                 partition->offset);
-        return true;
-    }
-
-    return false;
-}
-
-#define TRY_LOG_FORMAT "Trying partition index %d offs 0x%x size 0x%x"
-
-/* Load the app for booting. Start from partition 'start_index', if not bootable then work backwards to FACTORY_INDEX
- * (ie try any OTA slots in descending order and then the factory partition).
- *
- * If still nothing, start from 'start_index + 1' and work up to highest numbered OTA partition.
- *
- * If still nothing, try TEST_APP_INDEX
- *
- * Returns true on success, false if there's no bootable app in the partition table.
- */
-static bool load_boot_image(const bootloader_state_t *bs, int start_index, esp_image_metadata_t *result)
-{
-    int index = start_index;
-    esp_partition_pos_t part;
-
-    /* work backwards from start_index, down to the factory app */
-    for(index = start_index; index >= FACTORY_INDEX; index--) {
-        part = index_to_partition(bs, index);
-        if (part.size == 0) {
-            continue;
-        }
-        ESP_LOGD(TAG, TRY_LOG_FORMAT, index, part.offset, part.size);
-        if (try_load_partition(&part, result)) {
-            return true;
-        }
-        log_invalid_app_partition(index);
-    }
-
-    /* failing that work forwards from start_index, try valid OTA slots */
-    for(index = start_index + 1; index < bs->app_count; index++) {
-        part = index_to_partition(bs, index);
-        if (part.size == 0) {
-            continue;
-        }
-        ESP_LOGD(TAG, TRY_LOG_FORMAT, index, part.offset, part.size);
-        if (try_load_partition(&part, result)) {
-            return true;
-        }
-        log_invalid_app_partition(index);
-    }
-
-    if (try_load_partition(&bs->test, result)) {
-        ESP_LOGW(TAG, "Falling back to test app as only bootable partition");
-        return true;
-    }
-
-    ESP_LOGE(TAG, "No bootable app partitions in the partition table");
-    bzero(result, sizeof(esp_image_metadata_t));
-    return false;
-}
-
 
 /**
  *  @function :     bootloader_main
@@ -452,6 +260,7 @@ void bootloader_main()
 #endif
     esp_image_header_t fhdr;
     bootloader_state_t bs = { 0 };
+    const esp_ota_select_entry_t *ota_select_map;
 
     ESP_LOGI(TAG, "compile time " __TIME__ );
     ets_set_appcpu_boot_addr(0);
@@ -492,13 +301,85 @@ void bootloader_main()
         return;
     }
 
-    int boot_index = get_selected_boot_partition(&bs);
-    if (boot_index == INVALID_INDEX) {
-        return; // Unrecoverable failure (not due to corrupt ota data or bad partition contents)
+    esp_partition_pos_t load_part_pos = { .offset = UINT32_MAX, .size = 0 };
+
+    if (bs.ota_info.offset != 0) {              // check if partition table has OTA info partition
+        esp_ota_select_entry_t ss[2];
+        //ESP_LOGE("OTA info sector handling is not implemented");
+        if (bs.ota_info.size < 2 * SPI_SEC_SIZE) {
+            ESP_LOGE(TAG, "ERROR: ota_info partition size %d is too small (minimum %d bytes)", bs.ota_info.size, sizeof(esp_ota_select_entry_t));
+            return;
+        }
+        ota_select_map = bootloader_mmap(bs.ota_info.offset, bs.ota_info.size);
+        if (!ota_select_map) {
+            ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", bs.ota_info.offset, bs.ota_info.size);
+            return;
+        }
+        memcpy(&ss[0], ota_select_map, sizeof(ss[0]));
+        memcpy(&ss[1], (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(ss[1]));
+        bootloader_munmap(ota_select_map);
+        if (ss[0].seq == UINT32_MAX && ss[1].seq == UINT32_MAX) {
+            esp_err_t r1 = ESP_OK, r2 = ESP_OK;
+            ESP_LOGI(TAG, "Initializing OTA info...");
+            memset(ss, 0, sizeof(ss));
+            /*
+             * If there is a factory default image, don't write any valid config and fall through.
+             * Otherwise, select the first OTA partition (if any).
+             */
+            if (bs.factory.size == 0) {
+                for (int i = 0; i < 16; i++) {
+                    if (bs.ota[i].size != 0) {
+                        ss[0].seq = 1;
+                        ss[0].boot_app_subtype = PART_SUBTYPE_OTA_MIN + i;
+                        ss[0].crc = esp_ota_select_crc(&ss[0]);
+                        break;
+                    }
+                }
+            }
+            /* Not setting crc will keep selector(s) invalid. */
+            r1 = bootloader_flash_erase_range(bs.ota_info.offset, 2 * SPI_SEC_SIZE);
+            if (r1 == ESP_OK) {
+                bool encrypt = esp_flash_encryption_enabled();
+                r1 = bootloader_flash_write(bs.ota_info.offset, &ss[0], sizeof(ss[0]), encrypt);
+                r2 = bootloader_flash_write(bs.ota_info.offset + SPI_SEC_SIZE, &ss[1], sizeof(ss[1]), encrypt);
+            }
+            if (r1 != ESP_OK || r2 != ESP_OK) {
+                ESP_LOGE(TAG, SPI_ERROR_LOG);
+                /* Fall through, we may still boot successfully. */
+            }
+        }
+
+        for (int i = 0; i < 2; i++) {
+          ESP_LOGI(TAG, "OTA data %d: seq 0x%08x, st 0x%02x, CRC 0x%08x, valid? %d",
+                   i, ss[i].seq, ss[i].boot_app_subtype, ss[i].crc, esp_ota_select_valid(&ss[i]));
+        }
+
+        const esp_ota_select_entry_t *cs = esp_ota_choose_current(ss);
+        if (cs != NULL) {
+            if ((cs->boot_app_subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_MIN) {
+                load_part_pos = bs.ota[cs->boot_app_subtype & PART_SUBTYPE_OTA_MASK];
+            } else if (cs->boot_app_subtype == PART_SUBTYPE_FACTORY) {
+                load_part_pos = bs.factory;
+            } else if (cs->boot_app_subtype == PART_SUBTYPE_TEST) {
+                load_part_pos = bs.test;
+            }
+        } else {
+            ESP_LOGE(TAG, "No valid OTA images");
+        }
     }
-    // Start from the default, look for the first bootable partition
-    esp_image_metadata_t image_data;
-    if (!load_boot_image(&bs, boot_index, &image_data)) {
+
+    if (load_part_pos.size == 0) {
+        if (bs.factory.size != 0) {
+            ESP_LOGI(TAG, "Loading factory image");
+            load_part_pos = bs.factory;
+        } else if (bs.test.size != 0) {
+            ESP_LOGI(TAG, "Loading test image");
+            load_part_pos = bs.test;
+        }
+    }
+
+    if (load_part_pos.size == 0) {
+        ESP_LOGE(TAG, "nothing to load");
         return;
     }
 
@@ -538,11 +419,19 @@ void bootloader_main()
     ESP_LOGI(TAG, "Disabling RNG early entropy source...");
     bootloader_random_disable();
 
+    esp_image_metadata_t image_data = { 0 };
+    esp_err_t err = esp_image_load(ESP_IMAGE_LOAD, &load_part_pos, &image_data);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to verify app image @ 0x%x (%d)", load_part_pos.offset, err);
+        return;
+    }
+
     // copy loaded segments to RAM, set up caches for mapped segments, and start application
-    unpack_load_app(&image_data);
+    unpack_load_app(&image_data, &load_part_pos);
 }
 
-static void unpack_load_app(const esp_image_metadata_t* data)
+static void unpack_load_app(const esp_image_metadata_t* data,
+                            const esp_partition_pos_t* partition)
 {
     uint32_t drom_addr = 0;
     uint32_t drom_load_addr = 0;
@@ -583,7 +472,8 @@ static void unpack_load_app(const esp_image_metadata_t* data)
         irom_addr,
         irom_load_addr,
         irom_size,
-        data->image.entry_addr);
+        data->image.entry_addr,
+        partition->offset);
 }
 
 static void set_cache_and_start_app(
@@ -593,7 +483,8 @@ static void set_cache_and_start_app(
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr)
+    uint32_t entry_addr,
+    uint32_t image_flash_addr)
 {
     ESP_LOGD(TAG, "configure drom and irom and start");
     Cache_Read_Disable( 0 );
@@ -625,12 +516,10 @@ static void set_cache_and_start_app(
     // Application will need to do Cache_Flush(1) and Cache_Read_Enable(1)
 
     ESP_LOGD(TAG, "start: 0x%08x", entry_addr);
-    typedef void (*entry_t)(void);
-    entry_t entry = ((entry_t) entry_addr);
 
     // TODO: we have used quite a bit of stack at this point.
     // use "movsp" instruction to reset stack back to where ROM stack starts.
-    (*entry)();
+    ((void (*)(uint32_t)) entry_addr)(image_flash_addr);
 }
 
 static void update_flash_config(const esp_image_header_t* pfhdr)
