@@ -320,6 +320,16 @@ esp_err_t esp_partition_get_sha256(const esp_partition_t *partition, uint8_t *sh
  */
 bool esp_partition_check_identity(const esp_partition_t *partition_1, const esp_partition_t *partition_2);
 
+/**
+ * @brief Get the partition that the device booted from.
+ *
+ * Returns partition that was used to boot the device.
+ *
+ * @return pointer to esp_partition_t structure, or NULL if no partition is found.
+ *         This pointer is valid for the lifetime of the application.
+ */
+const esp_partition_t *esp_partition_get_boot_partition(void);
+
 #ifdef __cplusplus
 }
 #endif
