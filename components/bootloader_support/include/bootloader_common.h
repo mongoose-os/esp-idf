@@ -22,6 +22,8 @@ typedef enum {
     GPIO_NOT_HOLD   = 0     /*!< If the GPIO input is not low */
 } esp_comm_gpio_hold_t;
 
+#include "esp_flash_data_types.h"
+
 /**
  * @brief Calculate crc for the OTA data partition.
  *
@@ -91,3 +93,5 @@ bool bootloader_common_label_search(const char *list, char *label);
  *          - ESP_FAIL: An allocation error occurred.
  */
 esp_err_t bootloader_common_get_sha256_of_partition(uint32_t address, uint32_t size, int type, uint8_t *out_sha_256);
+
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2]);
