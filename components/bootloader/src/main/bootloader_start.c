@@ -42,6 +42,7 @@
 #include "esp_secure_boot.h"
 #include "esp_flash_encrypt.h"
 #include "esp_flash_partitions.h"
+#include "esp_ota_select.h"
 #include "bootloader_flash.h"
 #include "bootloader_random.h"
 #include "bootloader_config.h"
@@ -56,9 +57,6 @@ We arrive here after the bootloader finished loading the program from flash. The
 flash cache is down and the app CPU is in reset. We do have a stack, so we can do the initialization in C.
 */
 
-// TODO: make a nice header file for ROM functions instead of adding externs all over the place
-extern void Cache_Flush(int);
-
 void bootloader_main();
 static void unpack_load_app(const esp_partition_pos_t *app_node);
 void print_flash_info(const esp_image_header_t* pfhdr);
@@ -68,11 +66,12 @@ static void set_cache_and_start_app(uint32_t drom_addr,
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr);
+    uint32_t entry_addr,
+    uint32_t image_flash_addr);
 static void update_flash_config(const esp_image_header_t* pfhdr);
 static void uart_console_configure(void);
 
-void IRAM_ATTR call_start_cpu0()
+void IRAM_ATTR boot_loader_entry()
 {
     cpu_configure_region_protection();
 
@@ -149,7 +148,7 @@ bool load_partition_table(bootloader_state_t* bs)
     }
 
     ESP_LOGI(TAG, "Partition Table:");
-    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length");
+    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length   Flags");
 
     for(int i = 0; i < num_partitions; i++) {
         const esp_partition_info_t *partition = &partitions[i];
@@ -171,9 +170,8 @@ bool load_partition_table(bootloader_state_t* bs)
                 break;
             default:
                 /* OTA binary */
-                if ((partition->subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_FLAG) {
+                if ((partition->subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_MIN) {
                     bs->ota[partition->subtype & PART_SUBTYPE_OTA_MASK] = partition->pos;
-                    ++bs->app_count;
                     partition_usage = "OTA app";
                 }
                 else {
@@ -194,6 +192,9 @@ bool load_partition_table(bootloader_state_t* bs)
             case PART_SUBTYPE_DATA_WIFI:
                 partition_usage = "WiFi data";
                 break;
+            case PART_SUBTYPE_DATA_SPIFFS:
+                partition_usage = "SPIFFS";
+                break;
             default:
                 partition_usage = "Unknown data";
                 break;
@@ -204,25 +205,17 @@ bool load_partition_table(bootloader_state_t* bs)
         }
 
         /* print partition type info */
-        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x", i, partition->label, partition_usage,
+        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x %08x",
+                 i, partition->label, partition_usage,
                  partition->type, partition->subtype,
-                 partition->pos.offset, partition->pos.size);
+                 partition->pos.offset, partition->pos.size,
+                 partition->flags);
     }
 
     bootloader_munmap(partitions);
 
     ESP_LOGI(TAG,"End of partition table");
     return true;
-}
-
-static uint32_t ota_select_crc(const esp_ota_select_entry_t *s)
-{
-  return crc32_le(UINT32_MAX, (uint8_t*)&s->ota_seq, 4);
-}
-
-static bool ota_select_valid(const esp_ota_select_entry_t *s)
-{
-  return s->ota_seq != UINT32_MAX && s->crc == ota_select_crc(s);
 }
 
 /**
@@ -248,8 +241,6 @@ void bootloader_main()
 #endif
     esp_image_header_t fhdr;
     bootloader_state_t bs;
-    SpiFlashOpResult spiRet1,spiRet2;
-    esp_ota_select_entry_t sa,sb;
     const esp_ota_select_entry_t *ota_select_map;
 
     memset(&bs, 0, sizeof(bs));
@@ -277,9 +268,10 @@ void bootloader_main()
         return;
     }
 
-    esp_partition_pos_t load_part_pos;
+    esp_partition_pos_t load_part_pos = { .offset = UINT32_MAX, .size = 0 };
 
     if (bs.ota_info.offset != 0) {              // check if partition table has OTA info partition
+        esp_ota_select_entry_t ss[2];
         //ESP_LOGE("OTA info sector handling is not implemented");
         if (bs.ota_info.size < 2 * SPI_SEC_SIZE) {
             ESP_LOGE(TAG, "ERROR: ota_info partition size %d is too small (minimum %d bytes)", bs.ota_info.size, sizeof(esp_ota_select_entry_t));
@@ -290,53 +282,70 @@ void bootloader_main()
             ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", bs.ota_info.offset, bs.ota_info.size);
             return;
         }
-        memcpy(&sa, ota_select_map, sizeof(esp_ota_select_entry_t));
-        memcpy(&sb, (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(esp_ota_select_entry_t));
+        memcpy(&ss[0], ota_select_map, sizeof(ss[0]));
+        memcpy(&ss[1], (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(ss[1]));
         bootloader_munmap(ota_select_map);
-        if(sa.ota_seq == 0xFFFFFFFF && sb.ota_seq == 0xFFFFFFFF) {
-            // init status flash 
-            if (bs.factory.offset != 0) {        // if have factory bin,boot factory bin
-                load_part_pos = bs.factory;
-            } else {
-                load_part_pos = bs.ota[0];
-                sa.ota_seq = 0x01;
-                sa.crc = ota_select_crc(&sa);
-                sb.ota_seq = 0x00;
-                sb.crc = ota_select_crc(&sb);
-
-                Cache_Read_Disable(0);  
-                spiRet1 = SPIEraseSector(bs.ota_info.offset/0x1000);
-                spiRet2 = SPIEraseSector(bs.ota_info.offset/0x1000+1);
-                if (spiRet1 != SPI_FLASH_RESULT_OK || spiRet2 != SPI_FLASH_RESULT_OK ) {  
-                    ESP_LOGE(TAG, SPI_ERROR_LOG);
-                    return;
-                } 
-                spiRet1 = SPIWrite(bs.ota_info.offset,(uint32_t *)&sa,sizeof(esp_ota_select_entry_t));
-                spiRet2 = SPIWrite(bs.ota_info.offset + 0x1000,(uint32_t *)&sb,sizeof(esp_ota_select_entry_t));
-                if (spiRet1 != SPI_FLASH_RESULT_OK || spiRet2 != SPI_FLASH_RESULT_OK ) {  
-                    ESP_LOGE(TAG, SPI_ERROR_LOG);
-                    return;
-                } 
-                Cache_Read_Enable(0);
+        if (ss[0].seq == UINT32_MAX && ss[1].seq == UINT32_MAX) {
+            esp_err_t r1 = ESP_OK, r2 = ESP_OK;
+            ESP_LOGI(TAG, "Initializing OTA info...");
+            memset(ss, 0, sizeof(ss));
+            /*
+             * If there is a factory default image, don't write any valid config and fall through.
+             * Otherwise, select the first OTA partition (if any).
+             */
+            if (bs.factory.size == 0) {
+                for (int i = 0; i < 16; i++) {
+                    if (bs.ota[i].size != 0) {
+                        ss[0].seq = 1;
+                        ss[0].boot_app_subtype = PART_SUBTYPE_OTA_MIN;
+                        ss[0].crc = esp_ota_select_crc(&ss[0]);
+                        break;
+                    }
+                }
             }
-            //TODO:write data in ota info
-        } else  {
-            if(ota_select_valid(&sa) && ota_select_valid(&sb)) {
-                load_part_pos = bs.ota[(((sa.ota_seq > sb.ota_seq)?sa.ota_seq:sb.ota_seq) - 1)%bs.app_count];
-            }else if(ota_select_valid(&sa)) {
-                load_part_pos = bs.ota[(sa.ota_seq - 1) % bs.app_count];
-            }else if(ota_select_valid(&sb)) {
-                load_part_pos = bs.ota[(sb.ota_seq - 1) % bs.app_count];
-            }else {
-                ESP_LOGE(TAG, "ota data partition info error");
-                return;
+            /* Not setting crc will keep selector(s) invalid. */
+            r1 = bootloader_flash_erase_range(bs.ota_info.offset, 2 * SPI_SEC_SIZE);
+            if (r1 == ESP_OK) {
+                bool encrypt = esp_flash_encryption_enabled();
+                r1 = bootloader_flash_write(bs.ota_info.offset, &ss[0], sizeof(ss[0]), encrypt);
+                r2 = bootloader_flash_write(bs.ota_info.offset + SPI_SEC_SIZE, &ss[1], sizeof(ss[1]), encrypt);
+            }
+            if (r1 != ESP_OK || r2 != ESP_OK) {
+                ESP_LOGE(TAG, SPI_ERROR_LOG);
+                /* Fall through, we may still boot successfully. */
             }
         }
-    } else if (bs.factory.offset != 0) {        // otherwise, look for factory app partition
-        load_part_pos = bs.factory;
-    } else if (bs.test.offset != 0) {           // otherwise, look for test app parition
-        load_part_pos = bs.test;
-    } else {                                    // nothing to load, bail out
+
+        for (int i = 0; i < 2; i++) {
+          ESP_LOGI(TAG, "OTA data %d: seq 0x%08x, st 0x%02x, CRC 0x%08x, valid? %d",
+                   i, ss[i].seq, ss[i].boot_app_subtype, ss[i].crc, esp_ota_select_valid(&ss[i]));
+        }
+
+        const esp_ota_select_entry_t *cs = esp_ota_choose_current(ss);
+        if (cs != NULL) {
+            if ((cs->boot_app_subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_MIN) {
+                load_part_pos = bs.ota[cs->boot_app_subtype & PART_SUBTYPE_OTA_MASK];
+            } else if (cs->boot_app_subtype == PART_SUBTYPE_FACTORY) {
+                load_part_pos = bs.factory;
+            } else if (cs->boot_app_subtype == PART_SUBTYPE_TEST) {
+                load_part_pos = bs.test;
+            }
+        } else {
+            ESP_LOGE(TAG, "No valid OTA images");
+        }
+    }
+
+    if (load_part_pos.size == 0) {
+        if (bs.factory.size != 0) {
+            ESP_LOGI(TAG, "Loading factory image");
+            load_part_pos = bs.factory;
+        } else if (bs.test.size != 0) {
+            ESP_LOGI(TAG, "Loading test image");
+            load_part_pos = bs.test;
+        }
+    }
+
+    if (load_part_pos.size == 0) {
         ESP_LOGE(TAG, "nothing to load");
         return;
     }
@@ -529,7 +538,8 @@ static void unpack_load_app(const esp_partition_pos_t* partition)
         irom_addr,
         irom_load_addr,
         irom_size,
-        image_header.entry_addr);
+        image_header.entry_addr,
+        partition->offset);
 }
 
 static void set_cache_and_start_app(
@@ -538,8 +548,9 @@ static void set_cache_and_start_app(
     uint32_t drom_size,
     uint32_t irom_addr,
     uint32_t irom_load_addr,
-    uint32_t irom_size, 
-    uint32_t entry_addr)
+    uint32_t irom_size,
+    uint32_t entry_addr,
+    uint32_t image_flash_addr)
 {
     ESP_LOGD(TAG, "configure drom and irom and start");
     Cache_Read_Disable( 0 );
@@ -563,12 +574,10 @@ static void set_cache_and_start_app(
     // Application will need to do Cache_Flush(1) and Cache_Read_Enable(1)
 
     ESP_LOGD(TAG, "start: 0x%08x", entry_addr);
-    typedef void (*entry_t)(void);
-    entry_t entry = ((entry_t) entry_addr);
 
     // TODO: we have used quite a bit of stack at this point.
     // use "movsp" instruction to reset stack back to where ROM stack starts.
-    (*entry)();
+    ((void (*)(uint32_t)) entry_addr)(image_flash_addr);
 }
 
 static void update_flash_config(const esp_image_header_t* pfhdr)
