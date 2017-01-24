@@ -101,13 +101,15 @@ static const char* TAG = "cpu_start";
 struct object { long placeholder[ 10 ]; };
 void __register_frame_info (const void *begin, struct object *ob);
 extern char __eh_frame[];
+uint32_t g_boot_image_flash_addr;
 
 /*
  * We arrive here after the bootloader finished loading the program from flash. The hardware is mostly uninitialized,
  * and the app CPU is in reset. We do have a stack, so we can do the initialization in C.
+ *
+ * Boot loader passes flash offset of our image so we can later know for sure which partition was used for boot.
  */
-
-void IRAM_ATTR call_start_cpu0()
+void IRAM_ATTR call_start_cpu0(uint32_t boot_image_flash_addr)
 {
 #if CONFIG_FREERTOS_UNICORE
     RESET_REASON rst_reas[1];
@@ -145,6 +147,8 @@ void IRAM_ATTR call_start_cpu0()
 
     //Clear BSS. Please do not attempt to do any complex stuff (like early logging) before this.
     memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
+
+    g_boot_image_flash_addr = boot_image_flash_addr;
 
     /* Unless waking from deep sleep (implying RTC memory is intact), clear RTC bss */
     if (rst_reas[0] != DEEPSLEEP_RESET) {
