@@ -267,6 +267,8 @@ esp_err_t esp_partition_mmap(const esp_partition_t* partition, uint32_t offset, 
                              const void** out_ptr, spi_flash_mmap_handle_t* out_handle);
 
 
+const esp_partition_t *esp_partition_get_boot_partition(void);
+
 #ifdef __cplusplus
 }
 #endif

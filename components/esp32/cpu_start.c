@@ -88,12 +88,15 @@ extern volatile int port_xSchedulerRunning[2];
 
 static const char* TAG = "cpu_start";
 
+uint32_t g_boot_image_flash_addr;
+
 /*
  * We arrive here after the bootloader finished loading the program from flash. The hardware is mostly uninitialized,
  * and the app CPU is in reset. We do have a stack, so we can do the initialization in C.
+ *
+ * Boot loader passes flash offset of our image so we can later know for sure which partition was used for boot.
  */
-
-void IRAM_ATTR call_start_cpu0()
+void IRAM_ATTR call_start_cpu0(uint32_t boot_image_flash_addr)
 {
     cpu_configure_region_protection();
 
@@ -103,6 +106,8 @@ void IRAM_ATTR call_start_cpu0()
                   ::"r"(&_init_start));
 
     memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
+
+    g_boot_image_flash_addr = boot_image_flash_addr;
 
     /* Unless waking from deep sleep (implying RTC memory is intact), clear RTC bss */
     if (rtc_get_reset_reason(0) != DEEPSLEEP_RESET) {
