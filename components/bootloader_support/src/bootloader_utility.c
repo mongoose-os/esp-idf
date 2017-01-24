@@ -65,7 +65,8 @@ static void set_cache_and_start_app(uint32_t drom_addr,
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr);
+    uint32_t entry_addr,
+    uint32_t image_flash_addr);
 
 bool bootloader_utility_load_partition_table(bootloader_state_t* bs)
 {
@@ -88,7 +89,7 @@ bool bootloader_utility_load_partition_table(bootloader_state_t* bs)
     }
 
     ESP_LOGI(TAG, "Partition Table:");
-    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length");
+    ESP_LOGI(TAG, "## Label            Usage          Type ST Offset   Length   Flags");
 
     for(int i = 0; i < num_partitions; i++) {
         const esp_partition_info_t *partition = &partitions[i];
@@ -135,6 +136,8 @@ bool bootloader_utility_load_partition_table(bootloader_state_t* bs)
                 break;
             case PART_SUBTYPE_DATA_NVS_KEYS:
                 partition_usage = "NVS keys";
+            case PART_SUBTYPE_DATA_SPIFFS:
+                partition_usage = "SPIFFS";
                 break;
             default:
                 partition_usage = "Unknown data";
@@ -146,9 +149,11 @@ bool bootloader_utility_load_partition_table(bootloader_state_t* bs)
         }
 
         /* print partition type info */
-        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x", i, partition->label, partition_usage,
+        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x %08x",
+                 i, partition->label, partition_usage,
                  partition->type, partition->subtype,
-                 partition->pos.offset, partition->pos.size);
+                 partition->pos.offset, partition->pos.size,
+                 partition->flags);
     }
 
     bootloader_munmap(partitions);
@@ -194,10 +199,10 @@ static void log_invalid_app_partition(int index)
 
 int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
 {
-    esp_ota_select_entry_t sa,sb;
     const esp_ota_select_entry_t *ota_select_map;
 
     if (bs->ota_info.offset != 0) {
+        esp_ota_select_entry_t ss[2];
         // partition table has OTA data partition
         if (bs->ota_info.size < 2 * SPI_SEC_SIZE) {
             ESP_LOGE(TAG, "ota_info partition size %d is too small (minimum %d bytes)", bs->ota_info.size, sizeof(esp_ota_select_entry_t));
@@ -210,13 +215,17 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
             ESP_LOGE(TAG, "bootloader_mmap(0x%x, 0x%x) failed", bs->ota_info.offset, bs->ota_info.size);
             return INVALID_INDEX; // can't proceed
         }
-        memcpy(&sa, ota_select_map, sizeof(esp_ota_select_entry_t));
-        memcpy(&sb, (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(esp_ota_select_entry_t));
+        memcpy(&ss[0], ota_select_map, sizeof(ss[0]));
+        memcpy(&ss[1], (uint8_t *)ota_select_map + SPI_SEC_SIZE, sizeof(ss[1]));
         bootloader_munmap(ota_select_map);
 
-        ESP_LOGD(TAG, "OTA sequence values A 0x%08x B 0x%08x", sa.ota_seq, sb.ota_seq);
-        if ((sa.ota_seq == UINT32_MAX && sb.ota_seq == UINT32_MAX) || (bs->app_count == 0)) {
-            ESP_LOGD(TAG, "OTA sequence numbers both empty (all-0xFF) or partition table does not have bootable ota_apps (app_count=%d)", bs->app_count);
+        for (int i = 0; i < 2; i++) {
+          ESP_LOGI(TAG, "OTA data %d: seq 0x%08x, st 0x%02x, CRC 0x%08x, valid? %d",
+                   i, ss[i].seq, ss[i].boot_app_subtype, ss[i].crc,
+                   bootloader_common_ota_select_valid(&ss[i]));
+        }
+        if(ss[0].seq == UINT32_MAX && ss[1].seq == UINT32_MAX) {
+            ESP_LOGD(TAG, "OTA sequence numbers both empty (all-0xFF)");
             if (bs->factory.offset != 0) {
                 ESP_LOGI(TAG, "Defaulting to factory image");
                 return FACTORY_INDEX;
@@ -225,33 +234,17 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
                 return 0;
             }
         } else  {
-            bool ota_valid = false;
-            const char *ota_msg;
-            int ota_seq; // Raw OTA sequence number. May be more than # of OTA slots
-            if(bootloader_common_ota_select_valid(&sa) && bootloader_common_ota_select_valid(&sb)) {
-                ota_valid = true;
-                ota_msg = "Both OTA values";
-                ota_seq = MAX(sa.ota_seq, sb.ota_seq) - 1;
-            } else if(bootloader_common_ota_select_valid(&sa)) {
-                ota_valid = true;
-                ota_msg = "Only OTA sequence A is";
-                ota_seq = sa.ota_seq - 1;
-            } else if(bootloader_common_ota_select_valid(&sb)) {
-                ota_valid = true;
-                ota_msg = "Only OTA sequence B is";
-                ota_seq = sb.ota_seq - 1;
-            }
-
-            if (ota_valid) {
-                int ota_slot = ota_seq % bs->app_count; // Actual OTA partition selection
-                ESP_LOGD(TAG, "%s valid. Mapping seq %d -> OTA slot %d", ota_msg, ota_seq, ota_slot);
-                return ota_slot;
-            } else if (bs->factory.offset != 0) {
-                ESP_LOGE(TAG, "ota data partition invalid, falling back to factory");
-                return FACTORY_INDEX;
+            const esp_ota_select_entry_t *cs = bootloader_common_ota_choose_current(ss);
+            if (cs != NULL) {
+                if ((cs->boot_app_subtype & ~PART_SUBTYPE_OTA_MASK) == PART_SUBTYPE_OTA_FLAG) {
+                    return (cs->boot_app_subtype & PART_SUBTYPE_OTA_MASK);
+                } else if (cs->boot_app_subtype == PART_SUBTYPE_FACTORY) {
+                    return FACTORY_INDEX;
+                } else if (cs->boot_app_subtype == PART_SUBTYPE_TEST) {
+                    return TEST_APP_INDEX;
+                }
             } else {
-                ESP_LOGE(TAG, "ota data partition invalid and no factory, will try all partitions");
-                return FACTORY_INDEX;
+                ESP_LOGE(TAG, "No valid OTA images");
             }
         }
     }
@@ -418,7 +411,8 @@ static void unpack_load_app(const esp_image_metadata_t* data)
         irom_addr,
         irom_load_addr,
         irom_size,
-        data->image.entry_addr);
+        data->image.entry_addr,
+        data->start_addr);
 }
 
 static void set_cache_and_start_app(
@@ -428,7 +422,8 @@ static void set_cache_and_start_app(
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr)
+    uint32_t entry_addr,
+    uint32_t image_flash_addr)
 {
     int rc;
     ESP_LOGD(TAG, "configure drom and irom and start");
@@ -475,12 +470,12 @@ static void set_cache_and_start_app(
     // Application will need to do Cache_Flush(1) and Cache_Read_Enable(1)
 
     ESP_LOGD(TAG, "start: 0x%08x", entry_addr);
-    typedef void (*entry_t)(void) __attribute__((noreturn));
+    typedef void (*entry_t)(uint32_t) __attribute__((noreturn));
     entry_t entry = ((entry_t) entry_addr);
 
     // TODO: we have used quite a bit of stack at this point.
     // use "movsp" instruction to reset stack back to where ROM stack starts.
-    (*entry)();
+    (*entry)(image_flash_addr);
 }
 
 
