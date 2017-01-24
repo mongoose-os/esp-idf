@@ -22,6 +22,8 @@ typedef enum {
     GPIO_NOT_HOLD   = 0     /*!< If the GPIO input is not low */
 } esp_comm_gpio_hold_t;
 
+#include "esp_flash_data_types.h"
+
 /**
  * @brief Calculate crc for the OTA data partition.
  *
@@ -68,3 +70,5 @@ bool bootloader_common_erase_part_type_data(const char *list_erase, bool ota_dat
  * @return    Returns true if the list contains the label, false otherwise.
  */
 bool bootloader_common_label_search(const char *list, char *label);
+
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2]);
