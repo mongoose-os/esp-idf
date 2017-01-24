@@ -57,6 +57,8 @@ static SLIST_HEAD(partition_list_head_, partition_list_item_) s_partition_list =
         SLIST_HEAD_INITIALIZER(s_partition_list);
 static _lock_t s_partition_list_lock;
 
+/* From cpu_start.c */
+extern uint32_t g_boot_image_flash_addr;
 
 esp_partition_iterator_t esp_partition_find(esp_partition_type_t type,
         esp_partition_subtype_t subtype, const char* label)
@@ -344,4 +346,19 @@ bool esp_partition_check_identity(const esp_partition_t *partition_1, const esp_
         }
     }
     return false;
+}
+
+const esp_partition_t *esp_partition_get_boot_partition(void)
+{
+    const esp_partition_t *p = NULL;
+    /* Boot partition must be an APP partition, but subtype can be any. */
+    esp_partition_iterator_t it = iterator_create(ESP_PARTITION_TYPE_APP, 0xff, NULL);
+    while ((it = esp_partition_next(it)) != NULL) {
+      p = esp_partition_get(it);
+      if (p->address == g_boot_image_flash_addr) {
+        esp_partition_iterator_release(it);
+        return p;
+      }
+    }
+    return NULL;
 }
