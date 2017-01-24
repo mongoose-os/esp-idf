@@ -324,6 +324,7 @@ esp_err_t esp_partition_get_sha256(const esp_partition_t *partition, uint8_t *sh
 bool esp_partition_check_identity(const esp_partition_t *partition_1, const esp_partition_t *partition_2);
 
 /**
+<<<<<<< HEAD
  * @brief Register a partition on an external flash chip
  *
  * This API allows designating certain areas of external flash chips (identified by the esp_flash_t structure)
@@ -347,6 +348,16 @@ bool esp_partition_check_identity(const esp_partition_t *partition_1, const esp_
 esp_err_t esp_partition_register_external(esp_flash_t* flash_chip, size_t offset, size_t size,
                                      const char* label, esp_partition_type_t type, esp_partition_subtype_t subtype,
                                      const esp_partition_t** out_partition);
+
+/**
+ * @brief Get the partition that the device booted from.
+ *
+ * Returns partition that was used to boot the device.
+ *
+ * @return pointer to esp_partition_t structure, or NULL if no partition is found.
+ *         This pointer is valid for the lifetime of the application.
+ */
+const esp_partition_t *esp_partition_get_boot_partition(void);
 
 /**
  * @brief Deregister the partition previously registered using esp_partition_register_external

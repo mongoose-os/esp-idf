@@ -170,6 +170,8 @@ esp_err_t bootloader_common_check_chip_validity(const esp_image_header_t* img_hd
  */
 void bootloader_common_vddsdio_configure();
 
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2]);
+
 #ifdef __cplusplus
 }
 #endif
