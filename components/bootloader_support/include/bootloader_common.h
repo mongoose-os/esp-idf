@@ -107,6 +107,9 @@ bool bootloader_common_label_search(const char *list, char *label);
  */
 esp_err_t bootloader_common_get_sha256_of_partition(uint32_t address, uint32_t size, int type, uint8_t *out_sha_256);
 
+const esp_ota_select_entry_t *bootloader_common_ota_choose_current(const esp_ota_select_entry_t s[2]);
+
+#if 0
 /**
  * @brief Returns the number of active otadata.
  *
@@ -128,6 +131,7 @@ int bootloader_common_get_active_otadata(esp_ota_select_entry_t *two_otadata);
  *        - -1: If it does not have active otadata.
  */
 int bootloader_common_select_otadata(const esp_ota_select_entry_t *two_otadata, bool *valid_two_otadata, bool max);
+#endif
 
 /**
  * @brief Returns esp_app_desc structure for app partition. This structure includes app version.
