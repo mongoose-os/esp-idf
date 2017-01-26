@@ -297,7 +297,7 @@ void bootloader_main()
                 for (int i = 0; i < 16; i++) {
                     if (bs.ota[i].size != 0) {
                         ss[0].seq = 1;
-                        ss[0].boot_app_subtype = PART_SUBTYPE_OTA_MIN;
+                        ss[0].boot_app_subtype = PART_SUBTYPE_OTA_MIN + i;
                         ss[0].crc = esp_ota_select_crc(&ss[0]);
                         break;
                     }
