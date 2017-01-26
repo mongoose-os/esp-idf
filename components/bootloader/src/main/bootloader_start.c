@@ -71,7 +71,7 @@ static void set_cache_and_start_app(uint32_t drom_addr,
 static void update_flash_config(const esp_image_header_t* pfhdr);
 static void uart_console_configure(void);
 
-void IRAM_ATTR boot_loader_entry()
+void IRAM_ATTR call_start_cpu0()
 {
     cpu_configure_region_protection();
 

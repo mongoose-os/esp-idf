@@ -21,7 +21,7 @@ MEMORY
 }
 
 /*  Default entry point:  */
-ENTRY(boot_loader_entry);
+ENTRY(call_start_cpu0);
 
 
 SECTIONS
