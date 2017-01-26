@@ -5,8 +5,9 @@
 # Converts partition tables to/from CSV and binary formats.
 #
 # See the sdkng README.md file for details about how to use this tool.
-import struct
 import argparse
+import os
+import struct
 import sys
 
 MAX_PARTITION_LENGTH = 0xC00   # 3K for partition data (96 entries) leaves 1K in a 4K sector for signature
@@ -163,7 +164,9 @@ class PartitionDefinition(object):
     def from_csv(cls, line):
         """ Parse a line from the CSV """
         line_w_defaults = line + ",,,,"  # lazy way to support default fields
-        fields = [ f.strip() for f in line_w_defaults.split(",") ]
+        def expand_var(f):
+            return os.environ[f[1:]] if f.startswith("$") else f
+        fields = [ expand_var(f.strip()) for f in line_w_defaults.split(",") ]
 
         res = PartitionDefinition()
         res.name = fields[0]
