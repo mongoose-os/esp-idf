@@ -396,6 +396,24 @@ void esp_vfs_select_triggered_isr(SemaphoreHandle_t *signal_sem, BaseType_t *wok
  */
 int esp_vfs_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
+/**
+ * Translate given vfs file descriptor to the underlying file descriptor.
+ *
+ * If given pctx is not NULL, then the ctx corresponding to the appropriate
+ * mount point will be written to it.
+ *
+ * If the given descriptor is invalid, then -1 is returned, and `pctx` is left
+ * intact.
+ *
+ * @param fd  Vfs file descriptor.
+ * @param pctx  Pointer to the application-dependent context pointer. If not
+ *              NULL, then the context corresponding to the appropriate mount
+ *              point will be written to it.
+ *
+ * @return  Underlying file descriptor, or -1 in case of an error.
+ */
+int esp_vfs_translate_fd(int fd, void **pctx);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
