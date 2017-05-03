@@ -198,6 +198,12 @@ int esp_vfs_unlink(struct _reent *r, const char *path);
 int esp_vfs_rename(struct _reent *r, const char *src, const char *dst);
 /**@}*/
 
+/**
+ * Translate given vfs file descriptor to the underlying file descriptor.
+ * If given pctx is not NULL, then the ctx corresponding to the appropriate
+ * mount point will be written to it.
+ */
+int esp_vfs_translate_fd(int fd, void **pctx);
 
 #ifdef __cplusplus
 } // extern "C"
