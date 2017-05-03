@@ -280,6 +280,18 @@ static inline int get_local_fd(const vfs_entry_t *vfs, int fd)
     return local_fd;
 }
 
+int esp_vfs_translate_fd(int fd, void **pctx)
+{
+    const vfs_entry_t* vfs = get_vfs_for_fd(fd);
+    if (vfs == NULL) {
+        return -1;
+    }
+    if (pctx != NULL) {
+        *pctx = vfs->ctx;
+    }
+    return get_local_fd(vfs, fd);
+}
+
 static const char* translate_path(const vfs_entry_t* vfs, const char* src_path)
 {
     assert(strncmp(src_path, vfs->path_prefix, vfs->path_prefix_len) == 0);
