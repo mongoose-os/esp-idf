@@ -10,7 +10,7 @@ SECTIONS
   {
     . = ALIGN(4);
     *(.rtc.literal .rtc.text)
-    *rtc_wake_stub*.o(.literal .text .literal.* .text.*)
+    *rtc_wake_stub*.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
   } >rtc_iram_seg
 
   /* RTC slow memory holds RTC wake stub
@@ -82,18 +82,18 @@ SECTIONS
     /* Code marked as runnning out of IRAM */
     _iram_text_start = ABSOLUTE(.);
     *(.iram1 .iram1.*)
-    *libfreertos.a:(.literal .text .literal.* .text.*)
-    *libheap.a:multi_heap.o(.literal .text .literal.* .text.*)
-    *libesp32.a:panic.o(.literal .text .literal.* .text.*)
-    *libesp32.a:core_dump.o(.literal .text .literal.* .text.*)
-    *libapp_trace.a:(.literal .text .literal.* .text.*)
-    *libxtensa-debug-module.a:eri.o(.literal .text .literal.* .text.*)
-    *libesp32.a:app_trace.o(.literal .text .literal.* .text.*)
-    *libphy.a:(.literal .text .literal.* .text.*)
-    *librtc.a:(.literal .text .literal.* .text.*)
-    *libsoc.a:(.literal .text .literal.* .text.*)
-    *libhal.a:(.literal .text .literal.* .text.*)
-    *libspi_flash.a:spi_flash_rom_patch.o(.literal .text .literal.* .text.*)
+    *libfreertos.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libheap.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libesp32.a:panic.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libesp32.a:core_dump.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libapp_trace.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libxtensa-debug-module.a:eri.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libphy.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *librtc.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libsoc.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libhal.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    *libspi_flash.a:spi_flash_rom_patch.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*))
+    . = ALIGN (256);
     _iram_text_end = ABSOLUTE(.);
   } > iram0_0_seg
 
@@ -112,10 +112,10 @@ SECTIONS
     *(.gnu.linkonce.s2.*)
     *(.jcr)
     *(.dram1 .dram1.*)
-    *libesp32.a:panic.o(.rodata .rodata.*)
-    *libphy.a:(.rodata .rodata.*)
-    *libapp_trace.a:(.rodata .rodata.*)
-    *libheap.a:multi_heap.o(.rodata .rodata.*)
+    *libesp32.a:panic.o(.rodata SORT_BY_NAME(.rodata.*))
+    *libphy.a:(.rodata SORT_BY_NAME(.rodata.*))
+    *libapp_trace.a:(.rodata SORT_BY_NAME(.rodata.*))
+    *libheap.a:(.rodata SORT_BY_NAME(.rodata.*))
     _data_end = ABSOLUTE(.);
     . = ALIGN(4);
   } >dram0_0_seg
@@ -139,7 +139,7 @@ SECTIONS
     *(.share.mem)
     *(.gnu.linkonce.b.*)
     *(COMMON)
-    . = ALIGN (8);
+    . = ALIGN (128);
     _bss_end = ABSOLUTE(.);
     _heap_start = ABSOLUTE(.);
   } >dram0_0_seg
@@ -148,7 +148,7 @@ SECTIONS
   {
     _rodata_start = ABSOLUTE(.);
     *(.rodata)
-    *(.rodata.*)
+    *(SORT_BY_NAME(.rodata.*))
     *(.irom1.text) /* catch stray ICACHE_RODATA_ATTR */
     *(.gnu.linkonce.r.*)
     *(.rodata1)
@@ -185,14 +185,46 @@ SECTIONS
     *(.lit4.*)
     *(.gnu.linkonce.lit4.*)
     _lit4_end = ABSOLUTE(.);
-    . = ALIGN(4);
+    . = ALIGN(4096);
   } >drom0_0_seg
 
   .flash.text :
   {
     _stext = .;
     _text_start = ABSOLUTE(.);
-    *(.literal .text .literal.* .text.* .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */app_update/libapp_update.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */bootloader/libbootloader.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */bootloader_support/libbootloader_support.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */bt/libbt.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */driver/libdriver.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */esp32/libesp32.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */esp32/lib/lib*.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */esptool_py/libesptool_py.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */ethernet/libethernet.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */expat/libexpat.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */freertos/libfreertos.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */log/liblog.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */lwip/liblwip.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */micro-ecc/libmicro-ecc.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */newlib/libnewlib*.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */newlib/lib/lib*.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */nvs_flash/libnvs_flash.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */partition_table/libpartition_table.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */soc/libsoc.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */spi_flash/libspi_flash.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */tcpip_adapter/libtcpip_adapter.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */vfs/libvfs.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */wpa_supplicant/libwpa_supplicant.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */xtensa-debug-module/libxtensa-debug-module.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+
+    */libcryptoauthlib.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libmbed*.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libspiffs.a:(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libsrc.a:cs_*.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libsrc.a:mjs.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libsrc.a:mongoose.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    */libsrc.a:mgos_*.o(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+    *(.literal .text SORT_BY_NAME(.literal.*) SORT_BY_NAME(.text.*) .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
     *(.irom0.text) /* catch stray ICACHE_RODATA_ATTR */
     *(.fini.literal)
     *(.fini)
