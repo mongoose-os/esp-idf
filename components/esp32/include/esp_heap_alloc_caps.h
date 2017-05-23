@@ -64,6 +64,19 @@ void heap_alloc_enable_nonos_stack_tag();
 void *pvPortMallocCaps(size_t xWantedSize, uint32_t caps);
 
 /**
+ * @brief Get the total size of all the regions that have the given capabilities
+ *
+ * This function takes all regions capable of having the given capabilities allocated in them
+ * and adds up their size.
+ *
+ * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
+ *                    of memory
+ *
+ * @return Number of bytes in the regions
+ */
+size_t xPortGetHeapSizeCaps( uint32_t caps );
+
+/**
  * @brief Get the total free size of all the regions that have the given capabilities
  *
  * This function takes all regions capable of having the given capabilities allocated in them
@@ -72,7 +85,7 @@ void *pvPortMallocCaps(size_t xWantedSize, uint32_t caps);
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
  *                    of memory
  *
- * @return Amount of free bytes in the regions
+ * @return Number of free bytes in the regions
  */
 size_t xPortGetFreeHeapSizeCaps( uint32_t caps );
 
@@ -85,11 +98,9 @@ size_t xPortGetFreeHeapSizeCaps( uint32_t caps );
  * @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type
  *                    of memory
  *
- * @return Amount of free bytes in the regions
+ * @return Number of free bytes in the regions
  */
 size_t xPortGetMinimumEverFreeHeapSizeCaps( uint32_t caps );
-
-
 
 /**
  * @brief Convenience function to check if a pointer is DMA-capable.
