@@ -929,7 +929,7 @@ static void gatts_process_mtu_req (tGATT_TCB *p_tcb, UINT16 len, UINT8 *p_data)
             p_tcb->payload_size = mtu;
         }
 
-        GATT_TRACE_ERROR("MTU request PDU with MTU size %d\n", p_tcb->payload_size);
+        GATT_TRACE_EVENT("MTU request PDU with MTU size %d\n", p_tcb->payload_size);
 
         l2cble_set_fixed_channel_tx_data_length(p_tcb->peer_bda, L2CAP_ATT_CID, p_tcb->payload_size);
 
