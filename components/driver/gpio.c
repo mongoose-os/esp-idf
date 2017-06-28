@@ -71,7 +71,7 @@ static gpio_context_t gpio_context = {
     .gpio_isr_func = NULL,
 };
 
-esp_err_t gpio_pullup_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pullup_en(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
 
@@ -86,7 +86,7 @@ esp_err_t gpio_pullup_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pullup_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pullup_dis(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
 
@@ -101,7 +101,7 @@ esp_err_t gpio_pullup_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pulldown_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pulldown_en(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
 
@@ -116,7 +116,7 @@ esp_err_t gpio_pulldown_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pulldown_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pulldown_dis(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
 
@@ -131,7 +131,7 @@ esp_err_t gpio_pulldown_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_set_intr_type(gpio_num_t gpio_num, gpio_int_type_t intr_type)
+esp_err_t IRAM_ATTR gpio_set_intr_type(gpio_num_t gpio_num, gpio_int_type_t intr_type)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     GPIO_CHECK(intr_type < GPIO_INTR_MAX, "GPIO interrupt type error", ESP_ERR_INVALID_ARG);
@@ -142,14 +142,14 @@ esp_err_t gpio_set_intr_type(gpio_num_t gpio_num, gpio_int_type_t intr_type)
     return ESP_OK;
 }
 
-static esp_err_t gpio_intr_enable_on_core(gpio_num_t gpio_num, uint32_t core_id)
+static esp_err_t IRAM_ATTR gpio_intr_enable_on_core(gpio_num_t gpio_num, uint32_t core_id)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_intr_enable_on_core(gpio_context.gpio_hal, gpio_num, core_id);
     return ESP_OK;
 }
 
-esp_err_t gpio_intr_enable(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_intr_enable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     portENTER_CRITICAL(&gpio_context.gpio_spinlock);
@@ -160,35 +160,35 @@ esp_err_t gpio_intr_enable(gpio_num_t gpio_num)
     return gpio_intr_enable_on_core (gpio_num, gpio_context.isr_core_id);
 }
 
-esp_err_t gpio_intr_disable(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_intr_disable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_intr_disable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-static esp_err_t gpio_input_disable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_input_disable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_input_disable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-static esp_err_t gpio_input_enable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_input_enable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_input_enable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-static esp_err_t gpio_output_disable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_output_disable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_output_disable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-static esp_err_t gpio_output_enable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_output_enable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO output gpio_num error", ESP_ERR_INVALID_ARG);
     gpio_hal_output_enable(gpio_context.gpio_hal, gpio_num);
@@ -196,33 +196,33 @@ static esp_err_t gpio_output_enable(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-static esp_err_t gpio_od_disable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_od_disable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_od_disable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-static esp_err_t gpio_od_enable(gpio_num_t gpio_num)
+static esp_err_t IRAM_ATTR gpio_od_enable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     gpio_hal_od_enable(gpio_context.gpio_hal, gpio_num);
     return ESP_OK;
 }
 
-esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level)
+esp_err_t IRAM_ATTR gpio_set_level(gpio_num_t gpio_num, uint32_t level)
 {
     GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO output gpio_num error", ESP_ERR_INVALID_ARG);
     gpio_hal_set_level(gpio_context.gpio_hal, gpio_num, level);
     return ESP_OK;
 }
 
-int gpio_get_level(gpio_num_t gpio_num)
+int IRAM_ATTR gpio_get_level(gpio_num_t gpio_num)
 {
     return gpio_hal_get_level(gpio_context.gpio_hal, gpio_num);
 }
 
-esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
+esp_err_t IRAM_ATTR gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     GPIO_CHECK(pull <= GPIO_FLOATING, "GPIO pull mode error", ESP_ERR_INVALID_ARG);
@@ -258,7 +258,7 @@ esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
     return ret;
 }
 
-esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
+esp_err_t IRAM_ATTR gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
 
@@ -290,7 +290,7 @@ esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
     return ret;
 }
 
-esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
+esp_err_t IRAM_ATTR gpio_config(const gpio_config_t *pGPIOConfig)
 {
     uint64_t gpio_pin_mask = (pGPIOConfig->pin_bit_mask);
     uint32_t io_reg = 0;
@@ -379,7 +379,7 @@ esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
     return ESP_OK;
 }
 
-esp_err_t gpio_reset_pin(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_reset_pin(gpio_num_t gpio_num)
 {
     assert(gpio_num >= 0 && GPIO_IS_VALID_GPIO(gpio_num));
     gpio_config_t cfg = {
