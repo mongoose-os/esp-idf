@@ -275,7 +275,7 @@ esp_err_t rtc_gpio_set_direction(gpio_num_t gpio_num, rtc_gpio_mode_t mode)
     return ESP_OK;
 }
 
-esp_err_t rtc_gpio_pullup_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR rtc_gpio_pullup_en(gpio_num_t gpio_num)
 {
     //this is a digital pad
     if (rtc_gpio_desc[gpio_num].pullup == 0) {
@@ -290,7 +290,7 @@ esp_err_t rtc_gpio_pullup_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t rtc_gpio_pulldown_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR rtc_gpio_pulldown_en(gpio_num_t gpio_num)
 {
     //this is a digital pad
     if (rtc_gpio_desc[gpio_num].pulldown == 0) {
@@ -305,7 +305,7 @@ esp_err_t rtc_gpio_pulldown_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t rtc_gpio_pullup_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR rtc_gpio_pullup_dis(gpio_num_t gpio_num)
 {
     //this is a digital pad
     if ( rtc_gpio_desc[gpio_num].pullup == 0 ) {
@@ -320,7 +320,7 @@ esp_err_t rtc_gpio_pullup_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR rtc_gpio_pulldown_dis(gpio_num_t gpio_num)
 {
     //this is a digital pad
     if (rtc_gpio_desc[gpio_num].pulldown == 0) {
