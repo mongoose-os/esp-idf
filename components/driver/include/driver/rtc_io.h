@@ -65,7 +65,7 @@ extern const rtc_gpio_desc_t rtc_gpio_desc[GPIO_PIN_COUNT];
  * @param gpio_num GPIO number
  * @return true if GPIO is valid for RTC GPIO use. talse otherwise.
  */
-inline static bool rtc_gpio_is_valid_gpio(gpio_num_t gpio_num)
+inline static bool IRAM_ATTR rtc_gpio_is_valid_gpio(gpio_num_t gpio_num)
 {
     return gpio_num < GPIO_PIN_COUNT
         && rtc_gpio_desc[gpio_num].reg != 0;
