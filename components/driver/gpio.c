@@ -81,7 +81,7 @@ static gpio_isr_func_t* gpio_isr_func = NULL;
 static gpio_isr_handle_t gpio_isr_handle;
 static portMUX_TYPE gpio_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
-esp_err_t gpio_pullup_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pullup_en(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     if (RTC_GPIO_IS_VALID_GPIO(gpio_num)) {
@@ -92,7 +92,7 @@ esp_err_t gpio_pullup_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pullup_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pullup_dis(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     if (RTC_GPIO_IS_VALID_GPIO(gpio_num)) {
@@ -103,7 +103,7 @@ esp_err_t gpio_pullup_dis(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pulldown_en(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pulldown_en(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     if (RTC_GPIO_IS_VALID_GPIO(gpio_num)) {
@@ -114,7 +114,7 @@ esp_err_t gpio_pulldown_en(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_pulldown_dis(gpio_num_t gpio_num)
+esp_err_t IRAM_ATTR gpio_pulldown_dis(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     if (RTC_GPIO_IS_VALID_GPIO(gpio_num)) {
@@ -184,7 +184,7 @@ static esp_err_t gpio_output_enable(gpio_num_t gpio_num)
     return ESP_OK;
 }
 
-esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level)
+esp_err_t IRAM_ATTR gpio_set_level(gpio_num_t gpio_num, uint32_t level)
 {
     GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO output gpio_num error", ESP_ERR_INVALID_ARG);
     if (level) {
@@ -203,7 +203,7 @@ esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level)
     return ESP_OK;
 }
 
-int gpio_get_level(gpio_num_t gpio_num)
+int IRAM_ATTR gpio_get_level(gpio_num_t gpio_num)
 {
     if (gpio_num < 32) {
         return (GPIO.in >> gpio_num) & 0x1;
@@ -212,7 +212,7 @@ int gpio_get_level(gpio_num_t gpio_num)
     }
 }
 
-esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
+esp_err_t IRAM_ATTR gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     GPIO_CHECK(pull <= GPIO_FLOATING, "GPIO pull mode error", ESP_ERR_INVALID_ARG);
@@ -242,7 +242,7 @@ esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull)
     return ret;
 }
 
-esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
+esp_err_t IRAM_ATTR gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode)
 {
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
     if (gpio_num >= 34 && (mode & (GPIO_MODE_DEF_OUTPUT))) {
