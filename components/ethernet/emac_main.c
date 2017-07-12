@@ -1102,7 +1102,7 @@ esp_err_t esp_eth_init_internal(eth_config_t *config)
     emac_rx_xMutex = xSemaphoreCreateRecursiveMutex();
     emac_tx_xMutex = xSemaphoreCreateRecursiveMutex();
     emac_xqueue = xQueueCreate(EMAC_EVT_QNUM, sizeof(emac_event_t));
-    xTaskCreate(emac_task, "emacT", 2048, NULL, EMAC_TASK_PRIORITY, &emac_task_hdl);
+    xTaskCreate(emac_task, "emacT", 3072, NULL, EMAC_TASK_PRIORITY, &emac_task_hdl);
 
     emac_enable_clk(false);
     esp_intr_alloc(ETS_ETH_MAC_INTR_SOURCE, 0, emac_process_intr, NULL, NULL);
