@@ -28,6 +28,7 @@
 #include "esp_intr.h"
 #include "esp_intr_alloc.h"
 #include "esp_attr.h"
+#include "esp_panic.h"
 #include "esp_freertos_hooks.h"
 #include "soc/timer_group_struct.h"
 #include "soc/timer_group_reg.h"
@@ -144,7 +145,11 @@ static void task_wdt_isr(void *arg)
         if (!twdttask->has_reset) {
             cpu=xTaskGetAffinity(twdttask->task_handle)==0?DRAM_STR("CPU 0"):DRAM_STR("CPU 1");
             if (xTaskGetAffinity(twdttask->task_handle)==tskNO_AFFINITY) cpu=DRAM_STR("CPU 0/1");
-            ets_printf(" - %s (%s)\n", pcTaskGetTaskName(twdttask->task_handle), cpu);
+            ets_printf(" - %s (%s), backtrace:", pcTaskGetTaskName(twdttask->task_handle), cpu);
+            /* First element of the TCB is the stack pointer */
+            XtExcFrame *frame = *((XtExcFrame **) (twdttask->task_handle));
+            doBacktrace(frame);
+            ets_printf("\r\n");
         }
     }
     ets_printf(DRAM_STR("Tasks currently running:\n"));
