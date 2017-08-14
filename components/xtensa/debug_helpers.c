@@ -32,7 +32,7 @@ bool IRAM_ATTR esp_backtrace_get_next_frame(esp_backtrace_frame_t *frame)
     return (esp_stack_ptr_is_sane(frame->sp) && esp_ptr_executable((void*)esp_cpu_process_stack_pc(frame->pc)));
 }
 
-esp_err_t IRAM_ATTR esp_backtrace_print(int depth)
+esp_err_t IRAM_ATTR esp_backtrace_print(const esp_backtrace_frame_t *stk, int depth)
 {
     //Check arguments
     if (depth <= 0) {
@@ -41,10 +41,13 @@ esp_err_t IRAM_ATTR esp_backtrace_print(int depth)
 
     //Initialize stk_frame with first frame of stack
     esp_backtrace_frame_t stk_frame;
-    esp_backtrace_get_start(&(stk_frame.pc), &(stk_frame.sp), &(stk_frame.next_pc));
+    if (stk != NULL) {
+      stk_frame = *stk;
+    } else {
+      esp_backtrace_get_start(&(stk_frame.pc), &(stk_frame.sp), &(stk_frame.next_pc));
+    }
     //esp_cpu_get_backtrace_start(&stk_frame);
-    ets_printf("\r\n\r\nBacktrace:");
-    ets_printf("0x%08X:0x%08X ", esp_cpu_process_stack_pc(stk_frame.pc), stk_frame.sp);
+    ets_printf("0x%08X ", esp_cpu_process_stack_pc(stk_frame.pc));
 
     //Check if first frame is valid
     bool corrupted = (esp_stack_ptr_is_sane(stk_frame.sp) &&

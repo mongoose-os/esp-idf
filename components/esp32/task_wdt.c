@@ -23,6 +23,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+#include "freertos/xtensa_context.h"
 #include <esp_types.h>
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
@@ -34,6 +35,7 @@
 #include "driver/periph_ctrl.h"
 #include "esp_task_wdt.h"
 #include "esp_private/system_internal.h"
+#include "esp_debug_helpers.h"
 
 static const char *TAG = "task_wdt";
 
@@ -156,7 +158,12 @@ static void task_wdt_isr(void *arg)
         if (!twdttask->has_reset) {
             cpu=xTaskGetAffinity(twdttask->task_handle)==0?DRAM_STR("CPU 0"):DRAM_STR("CPU 1");
             if (xTaskGetAffinity(twdttask->task_handle)==tskNO_AFFINITY) cpu=DRAM_STR("CPU 0/1");
-            ESP_EARLY_LOGE(TAG, " - %s (%s)", pcTaskGetTaskName(twdttask->task_handle), cpu);
+            ets_printf(" - %s (%s), backtrace:", pcTaskGetTaskName(twdttask->task_handle), cpu);
+            /* First element of the TCB is the stack pointer */
+            XtExcFrame *frame = *((XtExcFrame **) (twdttask->task_handle));
+            esp_backtrace_frame_t stk = {.pc = frame->pc, .sp = frame->a1, .next_pc = frame->a0};
+            esp_backtrace_print(&stk, 100);
+            ets_printf("\r\n");
         }
     }
     ESP_EARLY_LOGE(TAG, "%s", DRAM_STR("Tasks currently running:"));

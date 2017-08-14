@@ -38,6 +38,7 @@
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_core_dump.h"
+#include "esp_debug_helpers.h"
 #include "esp_spi_flash.h"
 #include "esp32/cache_err_int.h"
 #include "esp_app_trace.h"
@@ -465,20 +466,17 @@ static void esp_panic_dig_reset()
 }
 #endif
 
-static void putEntry(uint32_t pc, uint32_t sp)
+static void putEntry(uint32_t pc)
 {
     panicPutStr(" 0x");
     panicPutHex(pc);
-    panicPutStr(":0x");
-    panicPutHex(sp);
 }
 
-static void doBacktrace(XtExcFrame *exc_frame, int depth)
+void doBacktrace(XtExcFrame *exc_frame, int depth)
 {
     //Initialize stk_frame with first frame of stack
     esp_backtrace_frame_t stk_frame = {.pc = exc_frame->pc, .sp = exc_frame->a1, .next_pc = exc_frame->a0};
-    panicPutStr("\r\nBacktrace:");
-    putEntry(esp_cpu_process_stack_pc(stk_frame.pc), stk_frame.sp);
+    putEntry(esp_cpu_process_stack_pc(stk_frame.pc));
 
     //Check if first frame is valid
     bool corrupted = (esp_stack_ptr_is_sane(stk_frame.sp) &&
@@ -489,7 +487,7 @@ static void doBacktrace(XtExcFrame *exc_frame, int depth)
         if (!esp_backtrace_get_next_frame(&stk_frame)) {    //Get next stack frame
             corrupted = true;
         }
-        putEntry(esp_cpu_process_stack_pc(stk_frame.pc), stk_frame.sp);
+        putEntry(esp_cpu_process_stack_pc(stk_frame.pc));
     }
 
     //Print backtrace termination marker
@@ -573,6 +571,7 @@ static void commonErrorHandler_dump(XtExcFrame *frame, int core_id)
     panicPutStr("\r\n");
 
     /* With windowed ABI backtracing is easy, let's do it. */
+    panicPutStr("\r\nBacktrace:");
     doBacktrace(frame, 100);
 
     panicPutStr("\r\n");
