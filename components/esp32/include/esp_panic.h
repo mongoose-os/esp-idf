@@ -1,6 +1,8 @@
 #ifndef PANIC_H
 #define PANIC_H
 
+#include <freertos/xtensa_context.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -61,6 +63,7 @@ esp_err_t esp_set_watchpoint(int no, void *adr, int size, int flags);
  */
 void esp_clear_watchpoint(int no);
 
+void doBacktrace(XtExcFrame *frame);
 void panicPutChar(char c);
 void panicPutStr(const char *c);
 void panicPutHex(int a);
