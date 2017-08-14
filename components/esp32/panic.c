@@ -388,23 +388,20 @@ static void esp_panic_dig_reset()
     }
 }
 
-static void putEntry(uint32_t pc, uint32_t sp)
+static void putEntry(uint32_t pc)
 {
     if (pc & 0x80000000) {
         pc = (pc & 0x3fffffff) | 0x40000000;
     }
     panicPutStr(" 0x");
     panicPutHex(pc);
-    panicPutStr(":0x");
-    panicPutHex(sp);
 }
 
-static void doBacktrace(XtExcFrame *frame)
+void doBacktrace(XtExcFrame *frame)
 {
     uint32_t i = 0, pc = frame->pc, sp = frame->a1;
-    panicPutStr("\r\nBacktrace:");
     /* Do not check sanity on first entry, PC could be smashed. */
-    putEntry(pc, sp);
+    putEntry(pc);
     pc = frame->a0;
     while (i++ < 100) {
         uint32_t psp = sp;
@@ -412,13 +409,13 @@ static void doBacktrace(XtExcFrame *frame)
             break;
         }
         sp = *((uint32_t *) (sp - 0x10 + 4));
-        putEntry(pc - 3, sp); // stack frame addresses are return addresses, so subtract 3 to get the CALL address
+        putEntry(pc - 3); // stack frame addresses are return addresses, so subtract 3 to get the CALL address
         pc = *((uint32_t *) (psp - 0x10));
         if (pc < 0x40000000) {
             break;
         }
     }
-    panicPutStr("\r\n\r\n");
+    panicPutStr("\r\n");
 }
 
 /*
@@ -461,6 +458,7 @@ static __attribute__((noreturn)) void commonErrorHandler(XtExcFrame *frame)
     }
 
     /* With windowed ABI backtracing is easy, let's do it. */
+    panicPutStr("\r\nBacktrace:");
     doBacktrace(frame);
 
 #if CONFIG_ESP32_APPTRACE_ENABLE
