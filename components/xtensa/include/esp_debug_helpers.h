@@ -119,13 +119,14 @@ bool esp_backtrace_get_next_frame(esp_backtrace_frame_t *frame);
 /**
  * @brief Print the backtrace of the current stack
  *
+ * @param stk Stack frame pointer, use current stack if NULL.
  * @param depth The maximum number of stack frames to print (should be > 0)
  *
  * @return
  *      - ESP_OK    Backtrace successfully printed to completion or to depth limit
  *      - ESP_FAIL  Backtrace is corrupted
  */
-esp_err_t esp_backtrace_print(int depth);
+esp_err_t esp_backtrace_print(const esp_backtrace_frame_t *stk, int depth);
 
 #endif
 #ifdef __cplusplus
