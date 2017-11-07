@@ -366,12 +366,17 @@ void start_cpu0_default(void)
     esp_core_dump_init();
 #endif
 
+    // We are about to start the scheduler.
+    // Enable allocation in region where the startup stacks were located.
+    heap_caps_enable_nonos_stack_heaps();
+
     portBASE_TYPE res = xTaskCreatePinnedToCore(&main_task, "main",
                                                 ESP_TASK_MAIN_STACK, NULL,
                                                 ESP_TASK_MAIN_PRIO, NULL, 0);
     assert(res == pdTRUE);
     ESP_LOGI(TAG, "Starting scheduler on PRO CPU.");
     vTaskStartScheduler();
+    ESP_LOGE(TAG, "Failed to start scheduler!");
     abort(); /* Only get to here if not enough free heap to start scheduler */
 }
 
@@ -425,9 +430,6 @@ static void main_task(void* args)
         ;
     }
 #endif
-    //Enable allocation in region where the startup stacks were located.
-    heap_caps_enable_nonos_stack_heaps();
-
     //Initialize task wdt if configured to do so
 #ifdef CONFIG_TASK_WDT_PANIC
     ESP_ERROR_CHECK(esp_task_wdt_init(CONFIG_TASK_WDT_TIMEOUT_S, true))
