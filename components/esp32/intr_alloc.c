@@ -638,20 +638,16 @@ esp_err_t esp_intr_alloc_intrstatus(int source, int flags, uint32_t intrstatusre
         if (flags&ESP_INTR_FLAG_EDGE) xthal_set_intclear(1 << intr);
         vd->source=source;
     }
-    if (flags&ESP_INTR_FLAG_IRAM) {
-        vd->flags|=VECDESC_FL_INIRAM;
-        non_iram_int_mask[cpu]&=~(1<<intr);
-    } else {
-        vd->flags&=~VECDESC_FL_INIRAM;
-        non_iram_int_mask[cpu]|=(1<<intr);
-    }
-    if (source>=0) {
-        intr_matrix_set(cpu, source, intr);
-    }
 
     //Fill return handle data.
     ret->vector_desc=vd;
     ret->shared_vector_desc=vd->shared_vec_info;
+
+    esp_intr_set_in_iram(ret, (flags & ESP_INTR_FLAG_IRAM) != 0);
+
+    if (source>=0) {
+        intr_matrix_set(cpu, source, intr);
+    }
 
     //Enable int at CPU-level;
     ESP_INTR_ENABLE(intr);
@@ -685,6 +681,21 @@ esp_err_t esp_intr_alloc(int source, int flags, intr_handler_t handler, void *ar
     return esp_intr_alloc_intrstatus(source, flags, 0, 0, handler, arg, ret_handle);
 }
 
+esp_err_t IRAM_ATTR esp_intr_set_in_iram(intr_handle_t handle, bool is_in_iram)
+{
+    vector_desc_t *vd = handle->vector_desc;
+    portENTER_CRITICAL(&spinlock);
+    uint32_t mask = (1 << vd->intno);
+    if (is_in_iram) {
+        vd->flags |= VECDESC_FL_INIRAM;
+        non_iram_int_mask[vd->cpu] &= ~mask;
+    } else {
+        vd->flags &= ~VECDESC_FL_INIRAM;
+        non_iram_int_mask[vd->cpu] |= mask;
+    }
+    portEXIT_CRITICAL(&spinlock);
+    return ESP_OK;
+}
 
 esp_err_t esp_intr_free(intr_handle_t handle)
 {
