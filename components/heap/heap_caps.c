@@ -118,6 +118,10 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
         }
     }
     //Nothing usable found.
+    if (size > 0) {
+        printf("E:M %lu\n", (unsigned long) size);
+        heap_caps_print_heap_info(caps);
+    }
     return NULL;
 }
 
