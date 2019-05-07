@@ -283,9 +283,30 @@ static esp_err_t esp_ota_set_boot_subtype(esp_partition_subtype_t subtype)
 
     esp_ota_select_entry_t *s = NULL;
     if (cs == &ss[0]) {
+      /*
+       * Workaround for a config write bug present in before 3.2-r3 (mos 2.13):
+       * due to incorrect pointer comparison, this function would always write
+       * config 0, sequence 0 (the "else" branch below).
+       * Starting with 2.13 we are fixing this bug in a two-step process:
+       *  1. Keep always using config 0 but start incrementing the sequencer.
+       *  2. After 3 successful updates to newer versions, commence using
+       *     config slot 1 as originally intended.
+       * This is necessary to facilitate rollbacks to earlier versions which
+       * only update slot 0 and reset the sequencer to 1 - having valid slot 1
+       * would make boot loader select incorrect config.
+       */
+      if (cs->seq > 9) {
+        /* This is the desired behavior. */
         s = &ss[1];
         offset = SPI_FLASH_SEC_SIZE;
         new_seq = cs->seq + 1;
+      } else {
+        /* This is the workaround: increment seq on 0, stomp out 1 (for good measure). */
+        s = &ss[0];
+        offset = 0;
+        new_seq = cs->seq + 1;
+        esp_partition_erase_range(dp, SPI_FLASH_SEC_SIZE, SPI_FLASH_SEC_SIZE);
+      }
     } else if (cs == &ss[1]) {
         s = &ss[0];
         offset = 0;
@@ -313,7 +334,12 @@ static esp_err_t esp_ota_set_boot_subtype(esp_partition_subtype_t subtype)
         return ret;
     }
 
-    return esp_partition_write(dp, offset, s, sizeof(*s));
+    ret = esp_partition_write(dp, offset, s, sizeof(*s));
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    return ret;
 }
 
 esp_err_t esp_ota_set_boot_partition(const esp_partition_t *partition)
