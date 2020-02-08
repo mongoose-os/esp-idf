@@ -432,16 +432,21 @@ void start_cpu0_default(void)
 
     bootloader_flash_update_id();
 #if !CONFIG_SPIRAM_BOOT_INIT
-    // Read the application binary image header. This will also decrypt the header if the image is encrypted.
+    // Mongoose OS: Use flash params from boot loader instead of app image.
+    // They can get out of sync due to adjustment by mos during flashing.
+    // TODO(rojer): Make sure they are in sync.
     esp_image_header_t fhdr = {0};
-    // This assumes that DROM is the first segment in the application binary, i.e. that we can read
-    // the binary header through cache by accessing SOC_DROM_LOW address.
-    memcpy(&fhdr, (void*) SOC_DROM_LOW, sizeof(fhdr));
-    // If psram is uninitialized, we need to improve some flash configuration.
-    bootloader_flash_clock_config(&fhdr);
-    bootloader_flash_gpio_config(&fhdr);
-    bootloader_flash_dummy_config(&fhdr);
-    bootloader_flash_cs_timing_config();
+    if (esp_flash_encryption_enabled()) {
+        spi_flash_read_encrypted(ESP_BOOTLOADER_OFFSET, &fhdr, sizeof(esp_image_header_t));
+    } else {
+        spi_flash_read(ESP_BOOTLOADER_OFFSET, &fhdr, sizeof(esp_image_header_t));
+    }
+    if (fhdr.magic == ESP_IMAGE_HEADER_MAGIC) {
+        bootloader_flash_clock_config(&fhdr);
+        bootloader_flash_gpio_config(&fhdr);
+        bootloader_flash_dummy_config(&fhdr);
+        bootloader_flash_cs_timing_config();
+    }
 #endif
 
     portBASE_TYPE res = xTaskCreatePinnedToCore(&main_task, "main",
