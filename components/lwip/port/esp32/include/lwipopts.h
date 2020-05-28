@@ -828,7 +828,7 @@ enum {
  */
 #define DHCP_DEBUG                      LWIP_DBG_OFF
 #define LWIP_DEBUG                      LWIP_DBG_OFF
-#define TCP_DEBUG                       LWIP_DBG_OFF
+#define TCP_DEBUG                       LWIP_DBG_ON
 
 #define CHECKSUM_CHECK_UDP              0
 #define CHECKSUM_CHECK_IP               0

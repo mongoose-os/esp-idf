@@ -41,6 +41,8 @@
 
 #include "arch/sys_arch.h"
 
+#include "common/cs_dbg.h"
+
 #define BYTE_ORDER LITTLE_ENDIAN
 
 typedef uint8_t  u8_t;
@@ -68,7 +70,8 @@ typedef int sys_prot_t;
 
 #include <stdio.h>
 
-#define LWIP_PLATFORM_DIAG(x)   do {printf x;} while(0)
+//#define LWIP_PLATFORM_DIAG(x)   do {printf x;} while(0)
+#define LWIP_PLATFORM_DIAG(x)   LOG(LL_INFO, x)
 // __assert_func is the assertion failure handler from newlib, defined in assert.h
 #define LWIP_PLATFORM_ASSERT(message) __assert_func(__FILE__, __LINE__, __ASSERT_FUNC, message)
 
