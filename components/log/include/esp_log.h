@@ -41,7 +41,7 @@ typedef enum {
     ESP_LOG_VERBOSE     /*!< Bigger chunks of debugging information, or frequent messages which can potentially flood the output. */
 } esp_log_level_t;
 
-typedef int (*vprintf_like_t)(const char *, va_list);
+typedef int (*vprintf_like_t)(esp_log_level_t level, const char *, va_list);
 
 /**
  * @brief Set log level for given tag
@@ -70,7 +70,7 @@ void esp_log_level_set(const char* tag, esp_log_level_t level);
  * output to some other destination, such as file or network. Returns the original
  * log handler, which may be necessary to return output to the previous destination.
  *
- * @param func new Function used for output. Must have same signature as vprintf.
+ * @param func new Function used for output.
  *
  * @return func old Function used for output.
  */
