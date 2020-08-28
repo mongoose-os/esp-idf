@@ -86,12 +86,14 @@ typedef struct uncached_tag_entry_{
     char tag[0];    // beginning of a zero-terminated string
 } uncached_tag_entry_t;
 
+static int esp_log_default_vprintf(esp_log_level_t level, const char *fmt, va_list ap);
+
 static esp_log_level_t s_log_default_level = ESP_LOG_VERBOSE;
 static SLIST_HEAD(log_tags_head , uncached_tag_entry_) s_log_tags = SLIST_HEAD_INITIALIZER(s_log_tags);
 static cached_tag_entry_t s_log_cache[TAG_CACHE_SIZE];
 static uint32_t s_log_cache_max_generation = 0;
 static uint32_t s_log_cache_entry_count = 0;
-static vprintf_like_t s_log_print_func = &vprintf;
+static vprintf_like_t s_log_print_func = &esp_log_default_vprintf;
 static SemaphoreHandle_t s_log_mutex = NULL;
 
 #ifdef LOG_BUILTIN_CHECKS
@@ -105,6 +107,11 @@ static void heap_bubble_down(int index);
 static inline void heap_swap(int i, int j);
 static inline bool should_output(esp_log_level_t level_for_message, esp_log_level_t level_for_tag);
 static inline void clear_log_level_list();
+
+static int esp_log_default_vprintf(esp_log_level_t level, const char *fmt, va_list ap) {
+  (void) level;
+  return vprintf(fmt, ap);
+}
 
 vprintf_like_t esp_log_set_vprintf(vprintf_like_t func)
 {
@@ -213,7 +220,7 @@ void IRAM_ATTR esp_log_writev(esp_log_level_t level,
         return;
     }
 
-    (*s_log_print_func)(format, args);
+    (*s_log_print_func)(level, format, args);
 }
 
 void IRAM_ATTR esp_log_write(esp_log_level_t level,
