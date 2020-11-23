@@ -255,6 +255,7 @@ int crypto_ec_point_mul(struct crypto_ec *e, const struct crypto_ec_point *p,
 		struct crypto_ec_point *res)
 {
 	int ret;
+#if 0
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
 
@@ -263,16 +264,16 @@ int crypto_ec_point_mul(struct crypto_ec *e, const struct crypto_ec_point *p,
 
 	MBEDTLS_MPI_CHK(mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
 				NULL, 0));
-
+#endif
 	MBEDTLS_MPI_CHK(mbedtls_ecp_mul(&e->group,
 				(mbedtls_ecp_point *) res,
 				(const mbedtls_mpi *)b,
 				(const mbedtls_ecp_point *)p,
-				mbedtls_ctr_drbg_random,
-				&ctr_drbg));
+				NULL,
+				NULL));
 cleanup:
-	mbedtls_ctr_drbg_free(&ctr_drbg);
-	mbedtls_entropy_free(&entropy);
+	//mbedtls_ctr_drbg_free(&ctr_drbg);
+	//mbedtls_entropy_free(&entropy);
 	return ret ? -1 : 0;
 }
 
