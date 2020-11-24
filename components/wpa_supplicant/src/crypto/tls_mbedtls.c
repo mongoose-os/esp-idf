@@ -23,10 +23,10 @@
 #include "crypto/sha256.h"
 #include "crypto/sha384.h"
 #include "mbedtls/ssl_internal.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/entropy.h"
+//#include "mbedtls/ctr_drbg.h"
+//#include "mbedtls/entropy.h"
 #include "mbedtls/debug.h"
-#ifdef ESPRESSIF_USE
+#if 0 //def ESPRESSIF_USE
 #include "mbedtls/esp_debug.h"
 #include "mbedtls/esp_config.h"
 #else
@@ -60,8 +60,8 @@ struct tls_data {
 
 typedef struct tls_context {
 	mbedtls_ssl_context ssl;            /*!< TLS/SSL context */
-	mbedtls_entropy_context entropy;    /*!< mbedTLS entropy context structure */
-	mbedtls_ctr_drbg_context ctr_drbg;  /*!< mbedTLS ctr drbg context structure */
+	//mbedtls_entropy_context entropy;    /*!< mbedTLS entropy context structure */
+	//mbedtls_ctr_drbg_context ctr_drbg;  /*!< mbedTLS ctr drbg context structure */
 	mbedtls_ssl_config conf;            /*!< TLS/SSL config to be shared structures */
 	mbedtls_x509_crt cacert;            /*!< Container for X.509 CA certificate */
 	mbedtls_x509_crt *cacert_ptr;       /*!< Pointer to the cacert being used. */
@@ -85,9 +85,9 @@ static void tls_mbedtls_cleanup(tls_context_t *tls)
 	mbedtls_x509_crt_free(&tls->cacert);
 	mbedtls_x509_crt_free(&tls->clientcert);
 	mbedtls_pk_free(&tls->clientkey);
-	mbedtls_entropy_free(&tls->entropy);
+	//mbedtls_entropy_free(&tls->entropy);
 	mbedtls_ssl_config_free(&tls->conf);
-	mbedtls_ctr_drbg_free(&tls->ctr_drbg);
+	//mbedtls_ctr_drbg_free(&tls->ctr_drbg);
 	mbedtls_ssl_free(&tls->ssl);
 }
 
@@ -433,6 +433,8 @@ static int set_client_config(const struct tls_connection_params *cfg, tls_contex
 	return 0;
 }
 
+extern int mg_ssl_if_mbed_random(void *ctx, unsigned char *buf, size_t len);
+
 static int tls_create_mbedtls_handle(const struct tls_connection_params *params,
 				     tls_context_t *tls)
 {
@@ -442,24 +444,24 @@ static int tls_create_mbedtls_handle(const struct tls_connection_params *params,
 	assert(tls != NULL);
 
 	mbedtls_ssl_init(&tls->ssl);
-	mbedtls_ctr_drbg_init(&tls->ctr_drbg);
+	//mbedtls_ctr_drbg_init(&tls->ctr_drbg);
 	mbedtls_ssl_config_init(&tls->conf);
-	mbedtls_entropy_init(&tls->entropy);
+	//mbedtls_entropy_init(&tls->entropy);
 
 	ret = set_client_config(params, tls);
 	if (ret != 0) {
 		wpa_printf(MSG_ERROR, "Failed to set client configurations");
 		goto exit;
 	}
-
+/*
 	ret = mbedtls_ctr_drbg_seed(&tls->ctr_drbg, mbedtls_entropy_func,
 				    &tls->entropy, NULL, 0);
 	if (ret != 0) {
 		wpa_printf(MSG_ERROR, "mbedtls_ctr_drbg_seed returned -0x%x", -ret);
 		goto exit;
 	}
-
-	mbedtls_ssl_conf_rng(&tls->conf, mbedtls_ctr_drbg_random, &tls->ctr_drbg);
+*/
+	mbedtls_ssl_conf_rng(&tls->conf, mg_ssl_if_mbed_random, NULL);
 
 	ret = mbedtls_ssl_setup(&tls->ssl, &tls->conf);
 	if (ret != 0) {
