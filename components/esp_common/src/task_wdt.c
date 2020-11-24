@@ -189,14 +189,14 @@ static void task_wdt_isr(void *arg)
         int current_core = xPortGetCoreID();
         //Print backtrace of current core
         ESP_EARLY_LOGE(TAG, "Print CPU %d (current core) backtrace", current_core);
-        esp_backtrace_print(100);
+        esp_backtrace_print(NULL, 100);
     #if !CONFIG_FREERTOS_UNICORE
         //Print backtrace of other core
         ESP_EARLY_LOGE(TAG, "Print CPU %d backtrace", !current_core);
         esp_crosscore_int_send_print_backtrace(!current_core);
     #endif
     }
-    
+
     portEXIT_CRITICAL_ISR(&twdt_spinlock);
 }
 

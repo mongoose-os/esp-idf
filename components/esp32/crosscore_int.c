@@ -77,7 +77,7 @@ static void IRAM_ATTR esp_crosscore_isr(void *arg) {
          */
     }
     if (my_reason_val & REASON_PRINT_BACKTRACE) {
-        esp_backtrace_print(100);
+        esp_backtrace_print(NULL, 100);
     }
 }
 
