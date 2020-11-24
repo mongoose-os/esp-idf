@@ -72,8 +72,6 @@ static const char *TAG = "boot";
 /* Reduce literal size for some generic string literals */
 #define MAP_ERR_MSG "Image contains multiple %s segments. Only the last one will be mapped."
 
-static bool ota_has_initial_contents;
-
 static void load_image(const esp_image_metadata_t *image_data);
 static void unpack_load_app(const esp_image_metadata_t *data);
 static void set_cache_and_start_app(uint32_t drom_addr,
@@ -82,7 +80,8 @@ static void set_cache_and_start_app(uint32_t drom_addr,
                                     uint32_t irom_addr,
                                     uint32_t irom_load_addr,
                                     uint32_t irom_size,
-                                    uint32_t entry_addr);
+                                    uint32_t entry_addr,
+                                    uint32_t image_flash_addr);
 
 // Read ota_info partition and fill array from two otadata structures.
 static esp_err_t read_otadata(const esp_partition_pos_t *ota_info, esp_ota_select_entry_t *two_otadata)
@@ -186,6 +185,9 @@ bool bootloader_utility_load_partition_table(bootloader_state_t *bs)
                 esp_efuse_init(partition->pos.offset, partition->pos.size);
 #endif
                 break;
+            case PART_SUBTYPE_DATA_FS:
+                partition_usage = "FS";
+                break;
             default:
                 partition_usage = "Unknown data";
                 break;
@@ -196,9 +198,11 @@ bool bootloader_utility_load_partition_table(bootloader_state_t *bs)
         }
 
         /* print partition type info */
-        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x", i, partition->label, partition_usage,
+        ESP_LOGI(TAG, "%2d %-16s %-16s %02x %02x %08x %08x %08x",
+                 i, partition->label, partition_usage,
                  partition->type, partition->subtype,
-                 partition->pos.offset, partition->pos.size);
+                 partition->pos.offset, partition->pos.size,
+                 partition->flags);
     }
 
     bootloader_munmap(partitions);
@@ -242,6 +246,7 @@ static void log_invalid_app_partition(int index)
     }
 }
 
+#if 0
 static esp_err_t write_otadata(esp_ota_select_entry_t *otadata, uint32_t offset, bool write_encrypted)
 {
     esp_err_t err = bootloader_flash_erase_sector(offset / FLASH_SECTOR_SIZE);
@@ -253,6 +258,7 @@ static esp_err_t write_otadata(esp_ota_select_entry_t *otadata, uint32_t offset,
     }
     return err;
 }
+#endif
 
 static bool check_anti_rollback(const esp_partition_pos_t *partition)
 {
@@ -277,7 +283,6 @@ static void update_anti_rollback(const esp_partition_pos_t *partition)
 
 static int get_active_otadata_with_check_anti_rollback(const bootloader_state_t *bs, esp_ota_select_entry_t *two_otadata)
 {
-    uint32_t ota_seq;
     uint32_t ota_slot;
     bool valid_otadata[2];
 
@@ -287,8 +292,7 @@ static int get_active_otadata_with_check_anti_rollback(const bootloader_state_t 
     bool sec_ver_valid_otadata[2] = { 0 };
     for (int i = 0; i < 2; ++i) {
         if (valid_otadata[i] == true) {
-            ota_seq = two_otadata[i].ota_seq - 1; // Raw OTA sequence number. May be more than # of OTA slots
-            ota_slot = ota_seq % bs->app_count; // Actual OTA partition selection
+            ota_slot = (two_otadata[i].boot_app_subtype & PART_SUBTYPE_OTA_MASK); // Actual OTA partition selection
             if (check_anti_rollback(&bs->ota[ota_slot]) == false) {
                 // invalid. This otadata[i] will not be selected as active.
                 ESP_LOGD(TAG, "OTA slot %d has an app with secure_version, this version is smaller than in the device. This OTA slot will not be selected.", ota_slot);
@@ -314,12 +318,13 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
     if (read_otadata(&bs->ota_info, otadata) != ESP_OK) {
         return INVALID_INDEX;
     }
-    ota_has_initial_contents = false;
 
-    ESP_LOGD(TAG, "otadata[0]: sequence values 0x%08x", otadata[0].ota_seq);
-    ESP_LOGD(TAG, "otadata[1]: sequence values 0x%08x", otadata[1].ota_seq);
-
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+    for (int i = 0; i < 2; i++) {
+      ESP_LOGI(TAG, "OTA data %d: seq 0x%08x, st 0x%02x, CRC 0x%08x, valid? %d",
+               i, otadata[i].seq, otadata[i].boot_app_subtype, otadata[i].crc,
+               bootloader_common_ota_select_valid(&otadata[i]));
+    }
+#if 0 //def CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
     bool write_encrypted = esp_flash_encryption_enabled();
     for (int i = 0; i < 2; ++i) {
         if (otadata[i].ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
@@ -330,54 +335,22 @@ int bootloader_utility_get_selected_boot_partition(const bootloader_state_t *bs)
     }
 #endif
 
+    int active_otadata;
 #ifndef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
-    if ((bootloader_common_ota_select_invalid(&otadata[0]) &&
-            bootloader_common_ota_select_invalid(&otadata[1])) ||
-            bs->app_count == 0) {
-        ESP_LOGD(TAG, "OTA sequence numbers both empty (all-0xFF) or partition table does not have bootable ota_apps (app_count=%d)", bs->app_count);
-        if (bs->factory.offset != 0) {
-            ESP_LOGI(TAG, "Defaulting to factory image");
-            boot_index = FACTORY_INDEX;
-        } else {
-            ESP_LOGI(TAG, "No factory image, trying OTA 0");
-            boot_index = 0;
-            // Try to boot from ota_0.
-            if ((otadata[0].ota_seq == UINT32_MAX || otadata[0].crc != bootloader_common_ota_select_crc(&otadata[0])) &&
-                    (otadata[1].ota_seq == UINT32_MAX || otadata[1].crc != bootloader_common_ota_select_crc(&otadata[1]))) {
-                // Factory is not found and both otadata are initial(0xFFFFFFFF) or incorrect crc.
-                // will set correct ota_seq.
-                ota_has_initial_contents = true;
-            }
-        }
-    } else {
-        int active_otadata = bootloader_common_get_active_otadata(otadata);
+    active_otadata = bootloader_common_get_active_otadata(otadata);
 #else
     ESP_LOGI(TAG, "Enabled a check secure version of app for anti rollback");
     ESP_LOGI(TAG, "Secure version (from eFuse) = %d", esp_efuse_read_secure_version());
     // When CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK is enabled factory partition should not be in partition table, only two ota_app are there.
-    if ((otadata[0].ota_seq == UINT32_MAX || otadata[0].crc != bootloader_common_ota_select_crc(&otadata[0])) &&
-            (otadata[1].ota_seq == UINT32_MAX || otadata[1].crc != bootloader_common_ota_select_crc(&otadata[1]))) {
-        ESP_LOGI(TAG, "otadata[0..1] in initial state");
-        // both otadata are initial(0xFFFFFFFF) or incorrect crc.
-        // will set correct ota_seq.
-        ota_has_initial_contents = true;
-    } else {
-        int active_otadata = get_active_otadata_with_check_anti_rollback(bs, otadata);
+    active_otadata = get_active_otadata_with_check_anti_rollback(bs, otadata);
 #endif
+    {
         if (active_otadata != -1) {
             ESP_LOGD(TAG, "Active otadata[%d]", active_otadata);
-            uint32_t ota_seq = otadata[active_otadata].ota_seq - 1; // Raw OTA sequence number. May be more than # of OTA slots
-            boot_index = ota_seq % bs->app_count; // Actual OTA partition selection
-            ESP_LOGD(TAG, "Mapping seq %d -> OTA slot %d", ota_seq, boot_index);
-#ifdef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
-            if (otadata[active_otadata].ota_state == ESP_OTA_IMG_NEW) {
-                ESP_LOGD(TAG, "otadata[%d] is selected as new and marked PENDING_VERIFY state", active_otadata);
-                otadata[active_otadata].ota_state = ESP_OTA_IMG_PENDING_VERIFY;
-                write_otadata(&otadata[active_otadata], bs->ota_info.offset + FLASH_SECTOR_SIZE * active_otadata, write_encrypted);
-            }
-#endif // CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+            const esp_ota_select_entry_t *cs = &otadata[active_otadata];
+            boot_index = (cs->boot_app_subtype & PART_SUBTYPE_OTA_MASK);
 
-#ifdef CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
+#if 0 //def CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK
             if (otadata[active_otadata].ota_state == ESP_OTA_IMG_VALID) {
                 update_anti_rollback(&bs->ota[boot_index]);
             }
@@ -413,6 +386,7 @@ static bool try_load_partition(const esp_partition_pos_t *partition, esp_image_m
     return false;
 }
 
+#if 0
 // ota_has_initial_contents flag is set if factory does not present in partition table and
 // otadata has initial content(0xFFFFFFFF), then set actual ota_seq.
 static void set_actual_ota_seq(const bootloader_state_t *bs, int index)
@@ -436,6 +410,7 @@ static void set_actual_ota_seq(const bootloader_state_t *bs, int index)
     bootloader_common_update_rtc_retain_mem(&partition, true);
 #endif
 }
+#endif
 
 #ifdef CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP
 void bootloader_utility_load_boot_image_from_deep_sleep(void)
@@ -481,7 +456,7 @@ void bootloader_utility_load_boot_image(const bootloader_state_t *bs, int start_
         }
         ESP_LOGD(TAG, TRY_LOG_FORMAT, index, part.offset, part.size);
         if (check_anti_rollback(&part) && try_load_partition(&part, &image_data)) {
-            set_actual_ota_seq(bs, index);
+            //set_actual_ota_seq(bs, index);
             load_image(&image_data);
         }
         log_invalid_app_partition(index);
@@ -495,7 +470,7 @@ void bootloader_utility_load_boot_image(const bootloader_state_t *bs, int start_
         }
         ESP_LOGD(TAG, TRY_LOG_FORMAT, index, part.offset, part.size);
         if (check_anti_rollback(&part) && try_load_partition(&part, &image_data)) {
-            set_actual_ota_seq(bs, index);
+            //set_actual_ota_seq(bs, index);
             load_image(&image_data);
         }
         log_invalid_app_partition(index);
@@ -670,7 +645,8 @@ static void unpack_load_app(const esp_image_metadata_t *data)
                             irom_addr,
                             irom_load_addr,
                             irom_size,
-                            data->image.entry_addr);
+                            data->image.entry_addr,
+                            data->start_addr);
 }
 
 static void set_cache_and_start_app(
@@ -680,7 +656,8 @@ static void set_cache_and_start_app(
     uint32_t irom_addr,
     uint32_t irom_load_addr,
     uint32_t irom_size,
-    uint32_t entry_addr)
+    uint32_t entry_addr,
+    uint32_t image_flash_addr)
 {
     int rc;
     ESP_LOGD(TAG, "configure drom and irom and start");
@@ -759,12 +736,15 @@ static void set_cache_and_start_app(
     // Application will need to do Cache_Flush(1) and Cache_Read_Enable(1)
 
     ESP_LOGD(TAG, "start: 0x%08x", entry_addr);
-    typedef void (*entry_t)(void) __attribute__((noreturn));
+    // Note (2020/11/24): Argument is no longer used in 4.2-r1 and later
+    // but is still required to enable rollback to apps built with 3.3 (mOS 2.18).
+    // It can be phased out after some time.
+    typedef void (*entry_t)(uint32_t) __attribute__((noreturn));
     entry_t entry = ((entry_t) entry_addr);
 
     // TODO: we have used quite a bit of stack at this point.
     // use "movsp" instruction to reset stack back to where ROM stack starts.
-    (*entry)();
+    (*entry)(image_flash_addr);
 }
 
 void bootloader_reset(void)

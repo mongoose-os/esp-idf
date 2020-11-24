@@ -63,7 +63,6 @@ static SLIST_HEAD(partition_list_head_, partition_list_item_) s_partition_list =
         SLIST_HEAD_INITIALIZER(s_partition_list);
 static _lock_t s_partition_list_lock;
 
-
 static esp_err_t ensure_partitions_loaded(void)
 {
     esp_err_t err = ESP_OK;
