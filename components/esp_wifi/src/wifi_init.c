@@ -22,7 +22,9 @@
 #include "soc/rtc.h"
 #include "esp_wpa.h"
 #include "esp_netif.h"
+#if CONFIG_ESP_NETIF_TCPIP_ADAPTER_COMPATIBLE_LAYER
 #include "tcpip_adapter_compatible/tcpip_adapter_compat.h"
+#endif
 #include "driver/adc2_wifi_private.h"
 
 #if (CONFIG_ESP32_WIFI_RX_BA_WIN > CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM)
