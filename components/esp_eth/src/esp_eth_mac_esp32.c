@@ -389,7 +389,8 @@ IRAM_ATTR void emac_esp32_isr_handler(void *args)
     }
 }
 
-esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config)
+esp_eth_mac_t *esp_eth_mac_new_esp32_clock_mode(const eth_mac_config_t *config,
+                                                emac_clock_mode_t clock_mode)
 {
     esp_err_t ret_code = ESP_OK;
     esp_eth_mac_t *ret = NULL;
@@ -422,7 +423,7 @@ esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config)
         }
     }
     /* initialize hal layer driver */
-    emac_hal_init(&emac->hal, descriptors, emac->rx_buf, emac->tx_buf);
+    emac_hal_init(&emac->hal, clock_mode, descriptors, emac->rx_buf, emac->tx_buf);
     emac->sw_reset_timeout_ms = config->sw_reset_timeout_ms;
     emac->smi_mdc_gpio_num = config->smi_mdc_gpio_num;
     emac->smi_mdio_gpio_num = config->smi_mdio_gpio_num;
@@ -490,6 +491,28 @@ err:
         free(descriptors);
     }
     return ret;
+}
+
+esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config)
+{
+#if CONFIG_ETH_RMII_CLK_INPUT
+#if CONFIG_ETH_RMII_CLK_IN_GPIO == 0
+  emac_clock_mode_t clock_mode = EMAC_CLOCK_IN_GPIO0;
+#else
+#error "ESP32 EMAC only support input RMII clock to GPIO0"
+#endif
+#elif CONFIG_ETH_RMII_CLK_OUTPUT
+#if CONFIG_ETH_RMII_CLK_OUTPUT_GPIO0
+  emac_clock_mode_t clock_mode = EMAC_CLOCK_OUT_GPIO0;
+#elif CONFIG_ETH_RMII_CLK_OUT_GPIO == 16
+  emac_clock_mode_t clock_mode = EMAC_CLOCK_OUT_GPIO16;
+#elif CONFIG_ETH_RMII_CLK_OUT_GPIO == 17
+  emac_clock_mode_t clock_mode = EMAC_CLOCK_OUT_GPIO17;
+#else
+#error "Unsupported EMAC clock output mode"
+#endif
+#endif
+  return esp_eth_mac_new_esp32_clock_mode(config, clock_mode);
 }
 
 IRAM_ATTR void emac_hal_rx_complete_cb(void *arg)

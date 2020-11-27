@@ -332,6 +332,13 @@ typedef struct {
 
 _Static_assert(sizeof(eth_dma_rx_descriptor_t) == 32, "eth_dma_rx_descriptor_t should occupy 32 bytes in memory");
 
+typedef enum {
+  EMAC_CLOCK_IN_GPIO0 = 0,
+  EMAC_CLOCK_OUT_GPIO0 = 1,
+  EMAC_CLOCK_OUT_GPIO16 = 2,
+  EMAC_CLOCK_OUT_GPIO17 = 3,
+} emac_clock_mode_t;
+
 typedef struct {
     emac_mac_dev_t *mac_regs;
     emac_dma_dev_t *dma_regs;
@@ -341,10 +348,11 @@ typedef struct {
     void *descriptors;
     eth_dma_rx_descriptor_t *rx_desc;
     eth_dma_tx_descriptor_t *tx_desc;
+    emac_clock_mode_t clock_mode;
 } emac_hal_context_t;
 
-void emac_hal_init(emac_hal_context_t *hal, void *descriptors,
-                   uint8_t **rx_buf, uint8_t **tx_buf);
+void emac_hal_init(emac_hal_context_t *hal, emac_clock_mode_t clock_mode,
+                   void *descriptors, uint8_t **rx_buf, uint8_t **tx_buf);
 
 void emac_hal_reset_desc_chain(emac_hal_context_t *hal);
 

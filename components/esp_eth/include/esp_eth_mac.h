@@ -16,6 +16,9 @@
 #include <stdbool.h>
 #include "esp_eth_com.h"
 #include "sdkconfig.h"
+#if CONFIG_ETH_USE_ESP32_EMAC
+#include "hal/emac.h"
+#endif
 #if CONFIG_ETH_USE_SPI_ETHERNET
 #include "driver/spi_master.h"
 #endif
@@ -306,6 +309,10 @@ typedef struct {
 *      - NULL: create MAC instance failed because some error occurred
 */
 esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config);
+
+esp_eth_mac_t *esp_eth_mac_new_esp32_clock_mode(const eth_mac_config_t *config,
+                                                emac_clock_mode_t clock_mode);
+
 #endif // CONFIG_ETH_USE_ESP32_EMAC
 
 #if CONFIG_ETH_SPI_ETHERNET_DM9051
