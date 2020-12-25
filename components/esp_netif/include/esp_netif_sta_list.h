@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if CONFIG_WIFI_ENABLED
+
 #ifndef _ESP_NETIF_STA_LIST_H_
 #define _ESP_NETIF_STA_LIST_H_
 
@@ -69,3 +71,5 @@ esp_err_t esp_netif_get_sta_list(const wifi_sta_list_t *wifi_sta_list, esp_netif
 #endif
 
 #endif //_ESP_NETIF_STA_LIST_H_
+
+#endif // CONFIG_WIFI_ENABLED

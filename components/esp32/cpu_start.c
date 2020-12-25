@@ -54,9 +54,10 @@
 #include "esp_int_wdt.h"
 #include "esp_task.h"
 #include "esp_task_wdt.h"
-#include "esp_phy_init.h"
-#include "esp32/cache_err_int.h"
+#if CONFIG_ESP32_WIFI_SW_COEXIST_ENABLE
 #include "esp_coexist_internal.h"
+#endif
+#include "esp32/cache_err_int.h"
 #include "esp_core_dump.h"
 #include "esp_app_trace.h"
 #include "esp_private/dbg_stubs.h"

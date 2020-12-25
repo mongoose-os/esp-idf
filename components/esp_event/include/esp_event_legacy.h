@@ -18,7 +18,9 @@
 #include <stdbool.h>
 
 #include "esp_err.h"
+#if CONFIG_WIFI_ENABLED
 #include "esp_wifi_types.h"
+#endif
 #include "esp_netif.h"
 
 #ifdef __cplusplus
@@ -61,7 +63,7 @@ typedef enum {
 #define SYSTEM_EVENT_AP_STA_GOT_IP6 SYSTEM_EVENT_GOT_IP6
 #endif
 
-
+#if CONFIG_WIFI_ENABLED
 /** Argument structure of SYSTEM_EVENT_STA_WPS_ER_FAILED event */
 typedef wifi_event_sta_wps_fail_reason_t system_event_sta_wps_fail_reason_t;
 
@@ -91,6 +93,7 @@ typedef wifi_event_ap_stadisconnected_t system_event_ap_stadisconnected_t;
 
 /** Argument structure of  event */
 typedef wifi_event_ap_probe_req_rx_t system_event_ap_probe_req_rx_t;
+#endif  // CONFIG_WIFI_ENABLED
 
 /** Argument structure of  event */
 typedef ip_event_ap_staipassigned_t system_event_ap_staipassigned_t;
@@ -103,6 +106,7 @@ typedef ip_event_got_ip6_t system_event_got_ip6_t;
 
 /** Union of all possible system_event argument structures */
 typedef union {
+#if CONFIG_WIFI_ENABLED
     system_event_sta_connected_t               connected;          /*!< ESP32 station connected to AP */
     system_event_sta_disconnected_t            disconnected;       /*!< ESP32 station disconnected to AP */
     system_event_sta_scan_done_t               scan_done;          /*!< ESP32 station scan (APs) done */
@@ -115,6 +119,7 @@ typedef union {
     system_event_ap_stadisconnected_t          sta_disconnected;   /*!< a station disconnected to ESP32 soft-AP */
     system_event_ap_probe_req_rx_t             ap_probereqrecved;  /*!< ESP32 soft-AP receive probe request packet */
     system_event_ap_staipassigned_t            ap_staipassigned;   /**< ESP32 soft-AP assign an IP to the station*/
+#endif // CONFIG_WIFI_ENABLED
     system_event_got_ip6_t                     got_ip6;            /*!< ESP32 station　or ap or ethernet ipv6 addr state change to preferred */
 } system_event_info_t;
 

@@ -18,7 +18,7 @@
 #include "dhcpserver/dhcpserver.h"
 #include "esp_log.h"
 
-#if CONFIG_ESP_NETIF_TCPIP_LWIP
+#if CONFIG_ESP_NETIF_TCPIP_LWIP && CONFIG_WIFI_ENABLED
 
 static const char *TAG = "esp_netif_sta_list";
 
@@ -40,4 +40,4 @@ esp_err_t esp_netif_get_sta_list(const wifi_sta_list_t *wifi_sta_list, esp_netif
     return ESP_OK;
 }
 
-#endif // CONFIG_ESP_NETIF_TCPIP_LWIP
+#endif // CONFIG_ESP_NETIF_TCPIP_LWIP && CONFIG_WIFI_ENABLED

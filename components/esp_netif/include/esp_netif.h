@@ -17,7 +17,9 @@
 
 #include <stdint.h>
 #include "sdkconfig.h"
+#if CONFIG_WIFI_ENABLED
 #include "esp_wifi_types.h"
+#endif
 #include "esp_netif_ip_addr.h"
 #include "esp_netif_types.h"
 #include "esp_netif_defaults.h"

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "sdkconfig.h"
+
 #include "esp_netif.h"
 #include "esp_netif_lwip_internal.h"
 #include "esp_netif_lwip_ppp.h"
@@ -24,12 +26,17 @@
 //  of basic types of interfaces using lwip network stack
 //
 
+#if CONFIG_ETH_ENABLED
 static const struct esp_netif_netstack_config s_eth_netif_config = {
         .lwip = {
             .init_fn = ethernetif_init,
             .input_fn = ethernetif_input
         }
 };
+const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_eth      = &s_eth_netif_config;
+#endif // CONFIG_ETH_ENABLED
+
+#if CONFIG_WIFI_ENABLED
 static const struct esp_netif_netstack_config s_wifi_netif_config_ap = {
         .lwip = {
             .init_fn = wlanif_init_ap,
@@ -44,6 +51,10 @@ static const struct esp_netif_netstack_config s_wifi_netif_config_sta = {
         }
 };
 
+const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_sta = &s_wifi_netif_config_sta;
+const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_ap  = &s_wifi_netif_config_ap;
+#endif // CONFIG_WIFI_ENABLED
+
 static const struct esp_netif_netstack_config s_netif_config_ppp = {
         .lwip_ppp = {
                 .input_fn = esp_netif_lwip_ppp_input,
@@ -53,8 +64,4 @@ static const struct esp_netif_netstack_config s_netif_config_ppp = {
                 }
         }
 };
-
-const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_eth      = &s_eth_netif_config;
-const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_sta = &s_wifi_netif_config_sta;
-const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_wifi_ap  = &s_wifi_netif_config_ap;
 const esp_netif_netstack_config_t *_g_esp_netif_netstack_default_ppp      = &s_netif_config_ppp;

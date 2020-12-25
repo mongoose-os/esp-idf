@@ -28,6 +28,7 @@ esp_err_t esp_event_send_noop(system_event_t *event)
     return ESP_OK;
 }
 
+#if CONFIG_WIFI_ENABLED
 static system_event_id_t esp_event_legacy_wifi_event_id(int32_t event_id)
 {
     switch (event_id) {
@@ -87,6 +88,7 @@ static system_event_id_t esp_event_legacy_wifi_event_id(int32_t event_id)
         return SYSTEM_EVENT_MAX;
     }
 }
+#endif // CONFIG_WIFI_ENABLED
 
 static system_event_id_t esp_event_legacy_ip_event_id(int32_t event_id)
 {
@@ -115,9 +117,12 @@ static system_event_id_t esp_event_legacy_ip_event_id(int32_t event_id)
 
 static system_event_id_t esp_event_legacy_event_id(esp_event_base_t event_base, int32_t event_id)
 {
+#if CONFIG_WIFI_ENABLED
     if (event_base == WIFI_EVENT) {
         return esp_event_legacy_wifi_event_id(event_id);
-    } else if (event_base == IP_EVENT) {
+    }
+#endif
+    if (event_base == IP_EVENT) {
         return esp_event_legacy_ip_event_id(event_id);
     } else {
         ESP_LOGE(TAG, "invalid event base %s", event_base);

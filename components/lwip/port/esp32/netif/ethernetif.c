@@ -36,6 +36,10 @@
  *
  */
 
+#include "sdkconfig.h"
+
+#if CONFIG_ETH_ENABLED
+
 #include "lwip/opt.h"
 
 #include "lwip/def.h"
@@ -233,3 +237,5 @@ err_t ethernetif_init(struct netif *netif)
 
     return ERR_OK;
 }
+
+#endif // CONFIG_ETH_ENABLED

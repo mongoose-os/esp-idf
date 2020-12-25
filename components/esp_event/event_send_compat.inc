@@ -15,10 +15,12 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_event_legacy.h"
-#include "esp_wifi_types.h"
 #include "esp_netif.h"
 #if CONFIG_ETH_ENABLED
 #include "esp_eth.h"
+#endif
+#if CONFIG_WIFI_ENABLED
+#include "esp_wifi_types.h"
 #endif
 
 /**
@@ -65,6 +67,7 @@ esp_err_t esp_event_send_to_default_loop(system_event_t *event)
 
     const TickType_t send_timeout = 0;
     switch (event->event_id) {
+#if CONFIG_WIFI_ENABLED
         /* Wi-Fi common events */
         HANDLE_SYS_EVENT(WIFI, WIFI_READY);
         HANDLE_SYS_EVENT_ARG(WIFI, SCAN_DONE, scan_done);
@@ -89,6 +92,11 @@ esp_err_t esp_event_send_to_default_loop(system_event_t *event)
         HANDLE_SYS_EVENT_ARG(WIFI, AP_STACONNECTED, sta_connected);
         HANDLE_SYS_EVENT_ARG(WIFI, AP_STADISCONNECTED, sta_disconnected);
         HANDLE_SYS_EVENT_ARG(WIFI, AP_PROBEREQRECVED, ap_probereqrecved);
+        /* IP events */
+        HANDLE_SYS_EVENT_ARG(IP, STA_GOT_IP, got_ip);
+        HANDLE_SYS_EVENT(IP, STA_LOST_IP);
+        HANDLE_SYS_EVENT(IP, AP_STAIPASSIGNED);
+#endif // CONFIG_WIFI_ENABLED
 #if CONFIG_ETH_ENABLED
         /* Ethernet events */
         /* Some extra defines to fit the old naming scheme... */
@@ -101,13 +109,10 @@ esp_err_t esp_event_send_to_default_loop(system_event_t *event)
         HANDLE_SYS_EVENT(ETH, ETH_STOP);
         HANDLE_SYS_EVENT(ETH, ETH_CONNECTED);
         HANDLE_SYS_EVENT(ETH, ETH_DISCONNECTED);
-#endif
         /* IP events */
-        HANDLE_SYS_EVENT_ARG(IP, STA_GOT_IP, got_ip);
         HANDLE_SYS_EVENT_ARG(IP, ETH_GOT_IP, got_ip);
-        HANDLE_SYS_EVENT(IP, STA_LOST_IP);
+#endif
         HANDLE_SYS_EVENT_ARG(IP, GOT_IP6, got_ip6);
-        HANDLE_SYS_EVENT(IP, AP_STAIPASSIGNED);
         default:
             return ESP_ERR_NOT_SUPPORTED;
     }

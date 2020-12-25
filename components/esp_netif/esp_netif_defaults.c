@@ -13,10 +13,6 @@
 // limitations under the License.
 
 #include "esp_netif.h"
-#include "esp_wifi_default.h"
-#if CONFIG_ETH_ENABLED
-#include "esp_eth.h"
-#endif
 
 //
 // Purpose of this module is to provide

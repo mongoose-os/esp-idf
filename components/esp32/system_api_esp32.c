@@ -17,7 +17,6 @@
 #include "esp_private/system_internal.h"
 #include "esp_attr.h"
 #include "esp_efuse.h"
-#include "esp_wifi.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "esp32/rom/efuse.h"
@@ -31,6 +30,7 @@
 #include "soc/cpu.h"
 #include "soc/rtc.h"
 #include "hal/wdt_hal.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/xtensa_api.h"
 
 #if CONFIG_IDF_TARGET_ESP32

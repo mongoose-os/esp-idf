@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if CONFIG_WIFI_ENABLED
 
 #ifndef _WLAN_LWIP_IF_H_
 #define _WLAN_LWIP_IF_H_
@@ -39,3 +40,5 @@ void netif_reg_addr_change_cb(void* cb);
 #endif
 
 #endif /*  _WLAN_LWIP_IF_H_ */
+
+#endif /* CONFIG_WIFI_ENABLED */

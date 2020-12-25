@@ -15,6 +15,12 @@
 #ifndef _ESP_NETIF_TYPES_H_
 #define _ESP_NETIF_TYPES_H_
 
+#include <stdbool.h>
+
+#include "esp_err.h"
+#include "esp_event_base.h"
+#include "esp_netif_ip_addr.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
