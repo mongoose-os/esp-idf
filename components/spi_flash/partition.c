@@ -348,7 +348,7 @@ esp_err_t esp_partition_read(const esp_partition_t* partition,
         return spi_flash_read(partition->address + src_offset, dst, size);
 #endif // CONFIG_SPI_FLASH_USE_LEGACY_IMPL
     } else {
-#if CONFIG_SECURE_FLASH_ENC_ENABLED
+#if 1 // CONFIG_SECURE_FLASH_ENC_ENABLED
         if (partition->flash_chip != esp_flash_default_chip) {
             return ESP_ERR_NOT_SUPPORTED;
         }
@@ -390,10 +390,12 @@ esp_err_t esp_partition_write(const esp_partition_t* partition,
         return spi_flash_write(dst_offset, src, size);
 #endif // CONFIG_SPI_FLASH_USE_LEGACY_IMPL
     } else {
-#if CONFIG_SECURE_FLASH_ENC_ENABLED
+#if 1 // CONFIG_SECURE_FLASH_ENC_ENABLED
         if (partition->flash_chip != esp_flash_default_chip) {
             return ESP_ERR_NOT_SUPPORTED;
         }
+        // Note: this requires CONFIG_SPI_FLASH_USE_LEGACY_IMPL=y as a workaround
+        // reported upstream: https://github.com/espressif/esp-idf/issues/6322
         return spi_flash_write_encrypted(dst_offset, src, size);
 #else
         return ESP_ERR_NOT_SUPPORTED;
