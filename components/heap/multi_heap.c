@@ -778,6 +778,7 @@ size_t multi_heap_minimum_free_size_impl(multi_heap_handle_t heap)
     return heap->minimum_free_bytes;
 }
 
+static bool once = true;
 void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
 {
     memset(info, 0, sizeof(multi_heap_info_t));
@@ -800,6 +801,11 @@ void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
             info->total_allocated_bytes += block_data_size(b);
             info->allocated_blocks++;
         }
+        if (once) {
+          multi_heap_internal_unlock(heap);
+          MULTI_HEAP_STDERR_PRINTF("  b %p h %p\n", b, (void *) b->header);
+          multi_heap_internal_lock(heap);
+        }
     }
 
     info->minimum_free_bytes = heap->minimum_free_bytes;
@@ -808,4 +814,5 @@ void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
 
     multi_heap_internal_unlock(heap);
 
+    once = false;
 }
