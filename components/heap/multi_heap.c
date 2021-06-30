@@ -778,7 +778,9 @@ size_t multi_heap_minimum_free_size_impl(multi_heap_handle_t heap)
     return heap->minimum_free_bytes;
 }
 
-static bool once = true;
+extern void mgos_cd_printf(const char *fmt, ...);
+
+static int counter = 0;
 void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
 {
     memset(info, 0, sizeof(multi_heap_info_t));
@@ -801,9 +803,9 @@ void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
             info->total_allocated_bytes += block_data_size(b);
             info->allocated_blocks++;
         }
-        if (once) {
+        if (counter < 13) {
           multi_heap_internal_unlock(heap);
-          MULTI_HEAP_STDERR_PRINTF("  b %p h %p\n", b, (void *) b->header);
+          mgos_cd_printf("  %d b %p h %p\n", counter, b, (void *) b->header);
           multi_heap_internal_lock(heap);
         }
     }
@@ -814,5 +816,5 @@ void multi_heap_get_info_impl(multi_heap_handle_t heap, multi_heap_info_t *info)
 
     multi_heap_internal_unlock(heap);
 
-    once = false;
+    counter++;
 }
